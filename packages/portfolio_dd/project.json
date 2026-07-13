@@ -1,0 +1,90 @@
+{
+  "name": "wealth_management_portal.portfolio_dd",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "packages/portfolio_dd/wealth_management_portal_portfolio_dd",
+  "tags": [],
+  "metadata": {
+    "generator": "py#project",
+    "ports": [8086, 8087, 8088, 8089, 8090, 8091],
+    "components": [
+      { "generator": "py#strands-agent", "name": "dd-supervisor",       "port": 8086 },
+      { "generator": "py#strands-agent", "name": "evidence-gatherer",   "port": 8087 },
+      { "generator": "py#strands-agent", "name": "framework-assessor",  "port": 8088 },
+      { "generator": "py#strands-agent", "name": "quant-analyst",       "port": 8089 },
+      { "generator": "py#strands-agent", "name": "report-drafter",      "port": 8090 },
+      { "generator": "py#strands-agent", "name": "qa-agent",            "port": 8091 }
+    ]
+  },
+  "targets": {
+    "add": { "executor": "@nxlv/python:add", "options": {} },
+    "build": {
+      "dependsOn": ["lint", "compile", "test"],
+      "options": { "outputPath": "{workspaceRoot}/dist/packages/portfolio_dd" }
+    },
+    "compile": {
+      "executor": "@nxlv/python:build",
+      "outputs": ["{workspaceRoot}/dist/packages/portfolio_dd/build"],
+      "options": {
+        "outputPath": "{workspaceRoot}/dist/packages/portfolio_dd/build",
+        "publish": false,
+        "lockedVersions": true,
+        "bundleLocalDependencies": true
+      },
+      "cache": true
+    },
+    "format": {
+      "executor": "@nxlv/python:ruff-format",
+      "outputs": [],
+      "options": { "filePatterns": ["wealth_management_portal_portfolio_dd", "tests"] },
+      "cache": true
+    },
+    "install": {
+      "executor": "@nxlv/python:install",
+      "options": { "silent": false, "args": "", "verbose": false, "debug": false }
+    },
+    "lint": {
+      "executor": "@nxlv/python:ruff-check",
+      "outputs": [],
+      "options": { "lintFilePatterns": ["wealth_management_portal_portfolio_dd", "tests"] },
+      "cache": true,
+      "dependsOn": ["format"]
+    },
+    "test": {
+      "executor": "@nxlv/python:run-commands",
+      "outputs": [
+        "{workspaceRoot}/reports/{projectRoot}/unittests",
+        "{workspaceRoot}/coverage/{projectRoot}"
+      ],
+      "options": {
+        "command": "uv run pytest tests/",
+        "cwd": "{projectRoot}"
+      },
+      "cache": true
+    },
+    "supervisor-serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": ["uv run fastapi dev wealth_management_portal_portfolio_dd/supervisor_agent/main.py --port 8086"],
+        "cwd": "{projectRoot}"
+      },
+      "continuous": true
+    },
+    "evidence-gatherer-serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": ["uv run fastapi dev wealth_management_portal_portfolio_dd/evidence_gatherer/main.py --port 8087"],
+        "cwd": "{projectRoot}"
+      },
+      "continuous": true
+    },
+    "api-serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": ["uv run fastapi dev wealth_management_portal_portfolio_dd/api/main.py --port 8092"],
+        "cwd": "{projectRoot}"
+      },
+      "continuous": true
+    }
+  }
+}
