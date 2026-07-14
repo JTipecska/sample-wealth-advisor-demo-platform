@@ -271,7 +271,7 @@ def generate_ai_response(query: str, stock_data: dict, themes: list[dict] | None
     try:
         config = Config(region_name="us-east-1", retries={"max_attempts": 3, "mode": "adaptive"})
         bedrock = boto3.client("bedrock-runtime", config=config)
-        model_id = "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
+        model_id = os.environ.get("CLIENT_SEARCH_MODEL_ID", "au.anthropic.claude-sonnet-4-6")
 
         # Prepare stock data summary
         quotes = stock_data.get("quotes", {})

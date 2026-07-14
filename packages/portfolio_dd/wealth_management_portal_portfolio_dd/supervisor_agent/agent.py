@@ -244,7 +244,7 @@ def create_agent() -> Agent:
         name="DD Supervisor",
         description="Orchestrates the full portfolio due diligence pipeline.",
         model=BedrockModel(
-            model_id=os.environ.get("DD_SUPERVISOR_MODEL_ID", "us.anthropic.claude-sonnet-4-6")
+            model_id=os.environ.get("DD_SUPERVISOR_MODEL_ID", "au.anthropic.claude-sonnet-4-6")
         ),
         system_prompt=SYSTEM_PROMPT,
         tools=[],

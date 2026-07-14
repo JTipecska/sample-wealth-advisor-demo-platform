@@ -234,7 +234,7 @@ def create_agent(session_id: str = "") -> Agent:
         "name": "Stock Data Agent",
         "description": "Live stock quotes, pricing, and financial metrics via Yahoo Finance.",
         "model": BedrockModel(
-            model_id=os.environ.get("STOCK_AGENT_BEDROCK_MODEL_ID", "us.anthropic.claude-sonnet-4-6")
+            model_id=os.environ.get("STOCK_AGENT_BEDROCK_MODEL_ID", "au.anthropic.claude-sonnet-4-6")
         ),
         "system_prompt": SYSTEM_PROMPT_TEMPLATE,
         "tools": TOOLS,

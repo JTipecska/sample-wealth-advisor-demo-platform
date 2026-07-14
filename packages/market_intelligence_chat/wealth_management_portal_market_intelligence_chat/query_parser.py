@@ -35,7 +35,7 @@ class QueryParser:
         """
         config = Config(region_name=region, retries={"max_attempts": 3, "mode": "adaptive"})
         self.bedrock = boto3.client("bedrock-runtime", config=config)
-        self.model_id = "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
+        self.model_id = os.environ.get("CLIENT_SEARCH_MODEL_ID", "au.anthropic.claude-sonnet-4-6")
 
         # Common stock symbols for reference
         self.common_stocks = {

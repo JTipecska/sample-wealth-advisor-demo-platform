@@ -56,7 +56,7 @@ def create_agent() -> Agent:
         name="Evidence Gatherer",
         description="Retrieves due diligence evidence from Bedrock Knowledge Base.",
         model=BedrockModel(
-            model_id=os.environ.get("EVIDENCE_GATHERER_MODEL_ID", "us.anthropic.claude-haiku-4-5-20251001-v1:0")
+            model_id=os.environ.get("EVIDENCE_GATHERER_MODEL_ID", "au.anthropic.claude-haiku-4-5-20251001-v1:0")
         ),
         system_prompt=SYSTEM_PROMPT,
         tools=[kb_search, get_document_excerpt],

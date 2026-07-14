@@ -1,6 +1,7 @@
 """
 Test agent integration and tool functionality
 """
+import os
 
 
 def test_stock_service_import():
@@ -19,7 +20,7 @@ def test_query_parser_import():
 
     parser = QueryParser()
     assert parser is not None
-    assert parser.model_id == "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
+    assert parser.model_id == os.environ.get("CLIENT_SEARCH_MODEL_ID", "au.anthropic.claude-sonnet-4-6")
 
 
 def test_agent_tools_import():

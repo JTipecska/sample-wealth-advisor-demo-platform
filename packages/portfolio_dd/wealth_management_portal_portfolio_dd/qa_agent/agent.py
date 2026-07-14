@@ -82,7 +82,7 @@ def create_agent() -> Agent:
         name="QA Agent",
         description="Validates DD report completeness and accuracy.",
         model=BedrockModel(
-            model_id=os.environ.get("QA_AGENT_MODEL_ID", "us.anthropic.claude-haiku-4-5-20251001-v1:0")
+            model_id=os.environ.get("QA_AGENT_MODEL_ID", "au.anthropic.claude-haiku-4-5-20251001-v1:0")
         ),
         system_prompt=SYSTEM_PROMPT,
         tools=[],

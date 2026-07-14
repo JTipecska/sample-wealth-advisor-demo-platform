@@ -82,7 +82,7 @@ def _infer_recommendation(score: float) -> str:
 
 
 def _invoke_bedrock(prompt: str) -> dict:
-    model_id = os.environ.get("REPORT_DRAFTER_MODEL_ID", "us.anthropic.claude-sonnet-4-6")
+    model_id = os.environ.get("REPORT_DRAFTER_MODEL_ID", "au.anthropic.claude-sonnet-4-6")
     client = boto3.client("bedrock-runtime", region_name=os.environ.get("AWS_REGION", "ap-southeast-2"))
     body = {
         "anthropic_version": "bedrock-2023-05-31",
@@ -134,7 +134,7 @@ def create_agent() -> Agent:
         name="Report Drafter",
         description="Generates board-ready DD report narrative.",
         model=BedrockModel(
-            model_id=os.environ.get("REPORT_DRAFTER_MODEL_ID", "us.anthropic.claude-sonnet-4-6")
+            model_id=os.environ.get("REPORT_DRAFTER_MODEL_ID", "au.anthropic.claude-sonnet-4-6")
         ),
         system_prompt=SYSTEM_PROMPT,
         tools=[],

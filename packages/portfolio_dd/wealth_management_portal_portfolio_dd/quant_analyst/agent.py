@@ -159,7 +159,7 @@ def create_agent() -> Agent:
         name="Quantitative Analyst",
         description="Extracts and calculates performance metrics for DD assessment.",
         model=BedrockModel(
-            model_id=os.environ.get("QUANT_ANALYST_MODEL_ID", "us.anthropic.claude-haiku-4-5-20251001-v1:0")
+            model_id=os.environ.get("QUANT_ANALYST_MODEL_ID", "au.anthropic.claude-haiku-4-5-20251001-v1:0")
         ),
         system_prompt=SYSTEM_PROMPT,
         tools=[extract_performance_data, calculate_metrics],

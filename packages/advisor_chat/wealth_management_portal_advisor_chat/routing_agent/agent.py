@@ -643,7 +643,7 @@ def create_agent(session_id: str = "", user_id: str = "", hooks: list | None = N
         "name": "Wealth Management Chat Router",
         "description": "Routes advisor questions to specialist agents for clients, markets, and compliance.",
         "model": BedrockModel(
-            model_id=os.environ.get("ROUTING_BEDROCK_MODEL_ID", "us.anthropic.claude-haiku-4-5-20251001-v1:0")
+            model_id=os.environ.get("ROUTING_BEDROCK_MODEL_ID", "au.anthropic.claude-haiku-4-5-20251001-v1:0")
         ),
         "system_prompt": SYSTEM_PROMPT,
         "tools": TOOLS,

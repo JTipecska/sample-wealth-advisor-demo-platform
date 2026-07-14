@@ -218,7 +218,7 @@ def create_agent(session_id: str = "") -> Agent:
         "name": "Web Search Agent",
         "description": "Enterprise-grade financial intelligence agent with sector-level analysis.",
         "model": BedrockModel(
-            model_id=os.environ.get("SUBAGENT_BEDROCK_MODEL_ID", "us.anthropic.claude-haiku-4-5-20251001-v1:0")
+            model_id=os.environ.get("SUBAGENT_BEDROCK_MODEL_ID", "au.anthropic.claude-haiku-4-5-20251001-v1:0")
         ),
         "system_prompt": SYSTEM_PROMPT_TEMPLATE,
         "tools": TOOLS,
