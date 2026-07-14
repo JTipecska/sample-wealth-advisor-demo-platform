@@ -4,13 +4,6 @@ import { PageLayout } from '../PageLayout';
 import { useDDApi } from './useDDApi';
 import type { Portfolio, Session } from './types';
 
-const RAG_COLORS = {
-  green: 'bg-green-100 text-green-800',
-  amber: 'bg-yellow-100 text-yellow-800',
-  red: 'bg-red-100 text-red-800',
-  grey: 'bg-gray-100 text-gray-600',
-};
-
 const STATUS_COLORS: Record<string, string> = {
   pending: 'bg-gray-100 text-gray-600',
   in_progress: 'bg-blue-100 text-blue-700',
@@ -30,7 +23,10 @@ export function PortfolioDDDashboard() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    api.listPortfolios().then(setPortfolios).catch(() => setPortfolios([]));
+    api
+      .listPortfolios()
+      .then(setPortfolios)
+      .catch(() => setPortfolios([]));
   }, []);
 
   const handleStartReview = useCallback(async () => {
@@ -41,7 +37,10 @@ export function PortfolioDDDashboard() {
       const session = await api.startReview(selectedPortfolioId);
       setSessions((prev) => [session, ...prev]);
       setShowModal(false);
-      navigate({ to: '/portfolio-dd/$reviewId', params: { reviewId: session.session_id } });
+      navigate({
+        to: '/portfolio-dd/$reviewId',
+        params: { reviewId: session.session_id },
+      });
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to start review');
     } finally {
@@ -49,7 +48,9 @@ export function PortfolioDDDashboard() {
     }
   }, [selectedPortfolioId, api, navigate]);
 
-  const inProgressCount = sessions.filter((s) => s.status === 'in_progress').length;
+  const inProgressCount = sessions.filter(
+    (s) => s.status === 'in_progress',
+  ).length;
   const completedCount = sessions.filter((s) => s.status === 'complete').length;
   const hitlCount = sessions.filter((s) => s.hitl_required).length;
 
@@ -68,11 +69,22 @@ export function PortfolioDDDashboard() {
       {/* Metrics strip */}
       <div className="grid grid-cols-3 gap-4">
         {[
-          { label: 'In Progress', value: inProgressCount, color: 'text-blue-600' },
-          { label: 'Completed', value: completedCount, color: 'text-green-600' },
+          {
+            label: 'In Progress',
+            value: inProgressCount,
+            color: 'text-blue-600',
+          },
+          {
+            label: 'Completed',
+            value: completedCount,
+            color: 'text-green-600',
+          },
           { label: 'HITL Required', value: hitlCount, color: 'text-amber-600' },
         ].map(({ label, value, color }) => (
-          <div key={label} className="bg-white rounded-xl border border-gray-200 p-5">
+          <div
+            key={label}
+            className="bg-white rounded-xl border border-gray-200 p-5"
+          >
             <p className="text-sm text-gray-500">{label}</p>
             <p className={`text-3xl font-bold mt-1 ${color}`}>{value}</p>
           </div>
@@ -102,33 +114,58 @@ export function PortfolioDDDashboard() {
             </thead>
             <tbody className="divide-y divide-gray-50">
               {sessions.map((s) => (
-                <tr key={s.session_id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4 font-medium text-gray-900">{s.portfolio_name}</td>
+                <tr
+                  key={s.session_id}
+                  className="hover:bg-gray-50 transition-colors"
+                >
+                  <td className="px-6 py-4 font-medium text-gray-900">
+                    {s.portfolio_name}
+                  </td>
                   <td className="px-6 py-4">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${STATUS_COLORS[s.status] ?? ''}`}>
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs font-medium ${STATUS_COLORS[s.status] ?? ''}`}
+                    >
                       {s.status}
                     </span>
                   </td>
                   <td className="px-6 py-4">
                     {s.overall_score != null ? (
-                      <span className="font-semibold">{s.overall_score.toFixed(1)}<span className="text-gray-400">/10</span></span>
+                      <span className="font-semibold">
+                        {s.overall_score.toFixed(1)}
+                        <span className="text-gray-400">/10</span>
+                      </span>
                     ) : (
                       <span className="text-gray-300">—</span>
                     )}
                   </td>
                   <td className="px-6 py-4">
                     {s.recommendation ? (
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${
-                        s.recommendation === 'APPROVE' ? 'bg-green-100 text-green-700' :
-                        s.recommendation === 'REJECT' ? 'bg-red-100 text-red-700' :
-                        'bg-amber-100 text-amber-700'
-                      }`}>{s.recommendation}</span>
-                    ) : <span className="text-gray-300">—</span>}
+                      <span
+                        className={`px-2 py-1 rounded text-xs font-medium ${
+                          s.recommendation === 'APPROVE'
+                            ? 'bg-green-100 text-green-700'
+                            : s.recommendation === 'REJECT'
+                              ? 'bg-red-100 text-red-700'
+                              : 'bg-amber-100 text-amber-700'
+                        }`}
+                      >
+                        {s.recommendation}
+                      </span>
+                    ) : (
+                      <span className="text-gray-300">—</span>
+                    )}
                   </td>
-                  <td className="px-6 py-4 text-gray-500">{new Date(s.started_at).toLocaleDateString()}</td>
+                  <td className="px-6 py-4 text-gray-500">
+                    {new Date(s.started_at).toLocaleDateString()}
+                  </td>
                   <td className="px-6 py-4">
                     <button
-                      onClick={() => navigate({ to: '/portfolio-dd/$reviewId', params: { reviewId: s.session_id } })}
+                      onClick={() =>
+                        navigate({
+                          to: '/portfolio-dd/$reviewId',
+                          params: { reviewId: s.session_id },
+                        })
+                      }
                       className="text-blue-600 hover:text-blue-700 text-xs font-medium"
                     >
                       View
@@ -145,8 +182,12 @@ export function PortfolioDDDashboard() {
       {showModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Start New Due Diligence Review</h3>
-            <label className="block text-sm text-gray-600 mb-1">Select Portfolio</label>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Start New Due Diligence Review
+            </h3>
+            <label className="block text-sm text-gray-600 mb-1">
+              Select Portfolio
+            </label>
             <select
               value={selectedPortfolioId}
               onChange={(e) => setSelectedPortfolioId(e.target.value)}
@@ -154,13 +195,18 @@ export function PortfolioDDDashboard() {
             >
               <option value="">-- choose a portfolio --</option>
               {portfolios.map((p) => (
-                <option key={p.portfolio_id} value={p.portfolio_id}>{p.name}</option>
+                <option key={p.portfolio_id} value={p.portfolio_id}>
+                  {p.name}
+                </option>
               ))}
             </select>
             {error && <p className="text-red-500 text-sm mb-3">{error}</p>}
             <div className="flex gap-3 justify-end">
               <button
-                onClick={() => { setShowModal(false); setError(''); }}
+                onClick={() => {
+                  setShowModal(false);
+                  setError('');
+                }}
                 className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
               >
                 Cancel

@@ -14,6 +14,9 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ClientsIndexRouteImport } from './routes/clients/index'
 import { Route as ClientsClientIdRouteImport } from './routes/clients/$clientId'
 import { Route as ClientsClientIdReportRouteImport } from './routes/clients/$clientId/report'
+import { Route as PortfolioDDIndexRouteImport } from './routes/portfolio-dd/index'
+import { Route as PortfolioDDReviewIdRouteImport } from './routes/portfolio-dd/$reviewId'
+import { Route as PortfolioDDReviewIdReportRouteImport } from './routes/portfolio-dd/$reviewId/report'
 
 const GraphSearchRoute = GraphSearchRouteImport.update({
   id: '/graph-search',
@@ -40,6 +43,22 @@ const ClientsClientIdReportRoute = ClientsClientIdReportRouteImport.update({
   path: '/report',
   getParentRoute: () => ClientsClientIdRoute,
 } as any)
+const PortfolioDDIndexRoute = PortfolioDDIndexRouteImport.update({
+  id: '/portfolio-dd/',
+  path: '/portfolio-dd/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PortfolioDDReviewIdRoute = PortfolioDDReviewIdRouteImport.update({
+  id: '/portfolio-dd/$reviewId',
+  path: '/portfolio-dd/$reviewId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PortfolioDDReviewIdReportRoute =
+  PortfolioDDReviewIdReportRouteImport.update({
+    id: '/report',
+    path: '/report',
+    getParentRoute: () => PortfolioDDReviewIdRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -47,6 +66,9 @@ export interface FileRoutesByFullPath {
   '/clients/$clientId': typeof ClientsClientIdRouteWithChildren
   '/clients/': typeof ClientsIndexRoute
   '/clients/$clientId/report': typeof ClientsClientIdReportRoute
+  '/portfolio-dd/': typeof PortfolioDDIndexRoute
+  '/portfolio-dd/$reviewId': typeof PortfolioDDReviewIdRouteWithChildren
+  '/portfolio-dd/$reviewId/report': typeof PortfolioDDReviewIdReportRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -54,6 +76,9 @@ export interface FileRoutesByTo {
   '/clients/$clientId': typeof ClientsClientIdRouteWithChildren
   '/clients': typeof ClientsIndexRoute
   '/clients/$clientId/report': typeof ClientsClientIdReportRoute
+  '/portfolio-dd': typeof PortfolioDDIndexRoute
+  '/portfolio-dd/$reviewId': typeof PortfolioDDReviewIdRouteWithChildren
+  '/portfolio-dd/$reviewId/report': typeof PortfolioDDReviewIdReportRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -62,6 +87,9 @@ export interface FileRoutesById {
   '/clients/$clientId': typeof ClientsClientIdRouteWithChildren
   '/clients/': typeof ClientsIndexRoute
   '/clients/$clientId/report': typeof ClientsClientIdReportRoute
+  '/portfolio-dd/': typeof PortfolioDDIndexRoute
+  '/portfolio-dd/$reviewId': typeof PortfolioDDReviewIdRouteWithChildren
+  '/portfolio-dd/$reviewId/report': typeof PortfolioDDReviewIdReportRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -71,6 +99,9 @@ export interface FileRouteTypes {
     | '/clients/$clientId'
     | '/clients/'
     | '/clients/$clientId/report'
+    | '/portfolio-dd/'
+    | '/portfolio-dd/$reviewId'
+    | '/portfolio-dd/$reviewId/report'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -78,6 +109,9 @@ export interface FileRouteTypes {
     | '/clients/$clientId'
     | '/clients'
     | '/clients/$clientId/report'
+    | '/portfolio-dd'
+    | '/portfolio-dd/$reviewId'
+    | '/portfolio-dd/$reviewId/report'
   id:
     | '__root__'
     | '/'
@@ -85,6 +119,9 @@ export interface FileRouteTypes {
     | '/clients/$clientId'
     | '/clients/'
     | '/clients/$clientId/report'
+    | '/portfolio-dd/'
+    | '/portfolio-dd/$reviewId'
+    | '/portfolio-dd/$reviewId/report'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -92,6 +129,8 @@ export interface RootRouteChildren {
   GraphSearchRoute: typeof GraphSearchRoute
   ClientsClientIdRoute: typeof ClientsClientIdRouteWithChildren
   ClientsIndexRoute: typeof ClientsIndexRoute
+  PortfolioDDIndexRoute: typeof PortfolioDDIndexRoute
+  PortfolioDDReviewIdRoute: typeof PortfolioDDReviewIdRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -131,6 +170,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ClientsClientIdReportRouteImport
       parentRoute: typeof ClientsClientIdRoute
     }
+    '/portfolio-dd/': {
+      id: '/portfolio-dd/'
+      path: '/portfolio-dd'
+      fullPath: '/portfolio-dd/'
+      preLoaderRoute: typeof PortfolioDDIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/portfolio-dd/$reviewId': {
+      id: '/portfolio-dd/$reviewId'
+      path: '/portfolio-dd/$reviewId'
+      fullPath: '/portfolio-dd/$reviewId'
+      preLoaderRoute: typeof PortfolioDDReviewIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/portfolio-dd/$reviewId/report': {
+      id: '/portfolio-dd/$reviewId/report'
+      path: '/report'
+      fullPath: '/portfolio-dd/$reviewId/report'
+      preLoaderRoute: typeof PortfolioDDReviewIdReportRouteImport
+      parentRoute: typeof PortfolioDDReviewIdRoute
+    }
   }
 }
 
@@ -146,11 +206,24 @@ const ClientsClientIdRouteWithChildren = ClientsClientIdRoute._addFileChildren(
   ClientsClientIdRouteChildren,
 )
 
+interface PortfolioDDReviewIdRouteChildren {
+  PortfolioDDReviewIdReportRoute: typeof PortfolioDDReviewIdReportRoute
+}
+
+const PortfolioDDReviewIdRouteChildren: PortfolioDDReviewIdRouteChildren = {
+  PortfolioDDReviewIdReportRoute: PortfolioDDReviewIdReportRoute,
+}
+
+const PortfolioDDReviewIdRouteWithChildren =
+  PortfolioDDReviewIdRoute._addFileChildren(PortfolioDDReviewIdRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   GraphSearchRoute: GraphSearchRoute,
   ClientsClientIdRoute: ClientsClientIdRouteWithChildren,
   ClientsIndexRoute: ClientsIndexRoute,
+  PortfolioDDIndexRoute: PortfolioDDIndexRoute,
+  PortfolioDDReviewIdRoute: PortfolioDDReviewIdRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
