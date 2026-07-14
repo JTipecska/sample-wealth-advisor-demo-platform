@@ -1,4 +1,5 @@
 """Synthetic sample data for the 5 demo portfolios."""
+
 from __future__ import annotations
 
 SAMPLE_MANAGERS: list[dict] = [
@@ -124,6 +125,5 @@ SAMPLE_PORTFOLIOS: list[dict] = [
 
 # Manager lookup by portfolio_id
 MANAGER_BY_PORTFOLIO: dict[str, dict] = {
-    p["portfolio_id"]: next(m for m in SAMPLE_MANAGERS if m["manager_id"] == p["manager_id"])
-    for p in SAMPLE_PORTFOLIOS
+    p["portfolio_id"]: next(m for m in SAMPLE_MANAGERS if m["manager_id"] == p["manager_id"]) for p in SAMPLE_PORTFOLIOS
 }

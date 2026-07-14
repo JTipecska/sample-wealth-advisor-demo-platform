@@ -1,4 +1,5 @@
 """FastAPI entry point for Evidence Gatherer agent."""
+
 from __future__ import annotations
 
 import logging
@@ -28,9 +29,10 @@ async def invocations(task: EvidenceTask) -> EvidenceBundle:
         return await gather_evidence(task)
     except Exception as exc:
         logger.exception("Evidence gathering failed for criterion %s", task.criterion_id)
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 8087)))

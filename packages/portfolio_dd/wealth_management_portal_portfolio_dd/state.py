@@ -1,12 +1,13 @@
 """AgentState — tracks per-criterion progress across a DD session."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 
-class CriterionStatus(str, Enum):
+class CriterionStatus(StrEnum):
     PENDING = "pending"
     GATHERING = "gathering"
     ASSESSED = "assessed"
@@ -51,17 +52,13 @@ class AgentState:
 
     @property
     def all_criteria_settled(self) -> bool:
-        return all(
-            c.status in (CriterionStatus.ASSESSED, CriterionStatus.FAILED)
-            for c in self.criteria.values()
-        )
+        return all(c.status in (CriterionStatus.ASSESSED, CriterionStatus.FAILED) for c in self.criteria.values())
 
     @property
     def progress_pct(self) -> int:
         if not self.criteria:
             return 0
         settled = sum(
-            1 for c in self.criteria.values()
-            if c.status in (CriterionStatus.ASSESSED, CriterionStatus.FAILED)
+            1 for c in self.criteria.values() if c.status in (CriterionStatus.ASSESSED, CriterionStatus.FAILED)
         )
         return int(settled / len(self.criteria) * 100)

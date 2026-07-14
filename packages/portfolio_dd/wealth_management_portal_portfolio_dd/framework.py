@@ -1,4 +1,5 @@
 """DD Framework v1.0 — 13 criteria, weights summing to 1.0."""
+
 from __future__ import annotations
 
 from .models import AssessmentCriterion, DDCategory, RAGStatus
@@ -160,7 +161,11 @@ def compute_overall_recommendation(
     HITL triggers: see is_hitl_required().
     """
     reasons: list[str] = []
-    veto_failed = [a.criterion_id for a in assessments if a.criterion_id in VETO_CRITERION_IDS and a.score is not None and a.score < 4.0]
+    veto_failed = [
+        a.criterion_id
+        for a in assessments
+        if a.criterion_id in VETO_CRITERION_IDS and a.score is not None and a.score < 4.0
+    ]
     if veto_failed:
         reasons.append(f"Veto criterion failed: {', '.join(veto_failed)}")
         return "REJECT", reasons

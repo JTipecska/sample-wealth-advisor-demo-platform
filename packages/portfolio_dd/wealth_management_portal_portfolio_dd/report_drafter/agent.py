@@ -1,4 +1,5 @@
 """Report Drafter Agent — generates the board-ready DD report narrative."""
+
 from __future__ import annotations
 
 import json
@@ -9,7 +10,6 @@ import boto3
 from strands import Agent
 from strands.models.bedrock import BedrockModel
 
-from ..framework import DD_FRAMEWORK_V1, FRAMEWORK_BY_ID
 from ..schemas import DraftTask, ReportDraft, ReportSection
 
 logger = logging.getLogger(__name__)
@@ -48,12 +48,15 @@ def _build_draft_prompt(task: DraftTask) -> str:
     if task.revision_notes:
         revision_block = "\n\nREVISION NOTES FROM QA:\n" + "\n".join(f"- {n}" for n in task.revision_notes)
 
-    return f"""Draft a Due Diligence report for {task.portfolio_name} ({task.portfolio_id}), managed by {task.manager_name}.
+    header = (
+        f"Draft a Due Diligence report for {task.portfolio_name} ({task.portfolio_id}), managed by {task.manager_name}."
+    )
+    return f"""{header}
 
 Criterion scores:
 {scores_table}
 
-Quantitative: {quant_summary or 'Not available'}
+Quantitative: {quant_summary or "Not available"}
 Overall score: {task.assessment_bundle.overall_score:.1f}/10
 Recommendation: {_infer_recommendation(task.assessment_bundle.overall_score)}{revision_block}
 
@@ -64,10 +67,14 @@ Return JSON matching this schema exactly:
   "recommendation": "<APPROVE|APPROVE_WITH_CONDITIONS|REJECT>",
   "executive_summary": "<2-3 paragraph executive summary>",
   "sections": [
-    {{"category": "investment_process", "title": "Investment Process", "content": "<narrative>", "criteria_covered": ["ip_01","ip_02","ip_03","ip_04"]}},
-    {{"category": "risk_operations", "title": "Risk & Operations", "content": "<narrative>", "criteria_covered": ["ro_01","ro_02","ro_03","ro_04"]}},
-    {{"category": "compliance_esg", "title": "Compliance & ESG", "content": "<narrative>", "criteria_covered": ["ce_01","ce_02","ce_03"]}},
-    {{"category": "commercial", "title": "Commercial", "content": "<narrative>", "criteria_covered": ["co_01","co_02"]}}
+    {{"category": "investment_process", "title": "Investment Process",
+      "content": "<narrative>", "criteria_covered": ["ip_01","ip_02","ip_03","ip_04"]}},
+    {{"category": "risk_operations", "title": "Risk & Operations",
+      "content": "<narrative>", "criteria_covered": ["ro_01","ro_02","ro_03","ro_04"]}},
+    {{"category": "compliance_esg", "title": "Compliance & ESG",
+      "content": "<narrative>", "criteria_covered": ["ce_01","ce_02","ce_03"]}},
+    {{"category": "commercial", "title": "Commercial",
+      "content": "<narrative>", "criteria_covered": ["co_01","co_02"]}}
   ],
   "generated_at": "<ISO timestamp>"
 }}"""
@@ -108,6 +115,7 @@ async def draft_report(task: DraftTask) -> ReportDraft:
         result = _invoke_bedrock(prompt)
         sections = [ReportSection(**s) for s in result.get("sections", [])]
         from datetime import datetime
+
         return ReportDraft(
             portfolio_id=task.portfolio_id,
             overall_score=result.get("overall_score", task.assessment_bundle.overall_score),
@@ -119,6 +127,7 @@ async def draft_report(task: DraftTask) -> ReportDraft:
     except Exception as exc:
         logger.error("Report drafting failed: %s", exc)
         from datetime import datetime
+
         return ReportDraft(
             portfolio_id=task.portfolio_id,
             overall_score=task.assessment_bundle.overall_score,
@@ -133,9 +142,7 @@ def create_agent() -> Agent:
     return Agent(
         name="Report Drafter",
         description="Generates board-ready DD report narrative.",
-        model=BedrockModel(
-            model_id=os.environ.get("REPORT_DRAFTER_MODEL_ID", "au.anthropic.claude-sonnet-4-6")
-        ),
+        model=BedrockModel(model_id=os.environ.get("REPORT_DRAFTER_MODEL_ID", "au.anthropic.claude-sonnet-4-6")),
         system_prompt=SYSTEM_PROMPT,
         tools=[],
         callback_handler=None,

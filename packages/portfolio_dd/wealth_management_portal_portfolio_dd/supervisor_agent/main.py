@@ -1,14 +1,14 @@
 """FastAPI entry point for DD Supervisor agent."""
+
 from __future__ import annotations
 
-import json
 import logging
 import os
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from ..schemas import DDRequest, DDAgentResult
+from ..schemas import DDAgentResult, DDRequest
 from .agent import run_dd_pipeline
 
 logging.basicConfig(level=logging.INFO)
@@ -43,9 +43,10 @@ async def invocations(body: DDRequest):
         )
     except Exception as exc:
         logger.exception("DD pipeline failed for session %s", body.session_id)
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 8086)))

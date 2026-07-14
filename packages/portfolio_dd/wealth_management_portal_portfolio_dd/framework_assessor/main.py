@@ -1,4 +1,5 @@
 """FastAPI entry point for Framework Assessor agent."""
+
 from __future__ import annotations
 
 import logging
@@ -28,9 +29,10 @@ async def invocations(task: AssessmentTask) -> AssessmentBundle:
         return await assess_all_criteria(task)
     except Exception as exc:
         logger.exception("Framework assessment failed for session %s", task.session_id)
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 8088)))

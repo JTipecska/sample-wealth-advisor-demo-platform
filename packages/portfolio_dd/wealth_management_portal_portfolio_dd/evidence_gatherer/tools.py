@@ -1,4 +1,5 @@
 """Evidence Gatherer tools — KB search and document retrieval."""
+
 from __future__ import annotations
 
 import logging
@@ -60,12 +61,14 @@ def kb_search(query: str, portfolio_id: str, top_k: int = 5) -> list[dict]:
         )
         results = []
         for item in resp.get("retrievalResults", []):
-            results.append({
-                "doc_id": item.get("metadata", {}).get("doc_id", ""),
-                "passage": item.get("content", {}).get("text", ""),
-                "score": item.get("score", 0.0),
-                "source_uri": item.get("location", {}).get("s3Location", {}).get("uri", ""),
-            })
+            results.append(
+                {
+                    "doc_id": item.get("metadata", {}).get("doc_id", ""),
+                    "passage": item.get("content", {}).get("text", ""),
+                    "score": item.get("score", 0.0),
+                    "source_uri": item.get("location", {}).get("s3Location", {}).get("uri", ""),
+                }
+            )
         return results
     except Exception as exc:
         logger.error("KB search failed: %s", exc)

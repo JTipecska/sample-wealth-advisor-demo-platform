@@ -1,4 +1,5 @@
 """DD Supervisor Agent — orchestrates the full due diligence pipeline."""
+
 from __future__ import annotations
 
 import asyncio
@@ -6,21 +7,21 @@ import logging
 import os
 from datetime import datetime
 
-from strands import Agent, tool
+from strands import Agent
 from strands.models.bedrock import BedrockModel
 
 from ..common.a2a_client import get_agent_endpoint, invoke_agent
 from ..framework import DD_FRAMEWORK_V1, compute_overall_recommendation, is_hitl_required, score_to_rag
-from ..models import CriterionAssessment, DDReport, RAGStatus, CategorySummary, DDCategory
+from ..models import CategorySummary, CriterionAssessment, DDCategory, DDReport
 from ..schemas import (
     AssessmentBundle,
     AssessmentTask,
     DDRequest,
+    DraftTask,
     EvidenceBundle,
     EvidenceTask,
     QATask,
     QuantTask,
-    DraftTask,
 )
 from ..state import AgentState, CriterionState, CriterionStatus
 
@@ -99,6 +100,7 @@ async def _run_quant(state: AgentState) -> dict:
 
 async def _assess(state: AgentState, evidence_bundles: list[EvidenceBundle], quant_bundle: dict) -> AssessmentBundle:
     from ..schemas import QuantBundle
+
     ep = get_agent_endpoint("framework-assessor")
     task = AssessmentTask(
         session_id=state.session_id,
@@ -110,8 +112,11 @@ async def _assess(state: AgentState, evidence_bundles: list[EvidenceBundle], qua
     return AssessmentBundle.model_validate(result)
 
 
-async def _draft_report(state: AgentState, bundle: AssessmentBundle, quant_bundle: dict, revision_notes: list[str]) -> dict:
+async def _draft_report(
+    state: AgentState, bundle: AssessmentBundle, quant_bundle: dict, revision_notes: list[str]
+) -> dict:
     from ..schemas import QuantBundle
+
     ep = get_agent_endpoint("report-drafter")
     task = DraftTask(
         session_id=state.session_id,
@@ -127,6 +132,7 @@ async def _draft_report(state: AgentState, bundle: AssessmentBundle, quant_bundl
 
 async def _qa_check(state: AgentState, draft: dict, evidence: list[EvidenceBundle], bundle: AssessmentBundle) -> dict:
     from ..schemas import ReportDraft
+
     ep = get_agent_endpoint("qa-agent")
     task = QATask(
         session_id=state.session_id,
@@ -243,9 +249,7 @@ def create_agent() -> Agent:
     return Agent(
         name="DD Supervisor",
         description="Orchestrates the full portfolio due diligence pipeline.",
-        model=BedrockModel(
-            model_id=os.environ.get("DD_SUPERVISOR_MODEL_ID", "au.anthropic.claude-sonnet-4-6")
-        ),
+        model=BedrockModel(model_id=os.environ.get("DD_SUPERVISOR_MODEL_ID", "au.anthropic.claude-sonnet-4-6")),
         system_prompt=SYSTEM_PROMPT,
         tools=[],
         callback_handler=None,

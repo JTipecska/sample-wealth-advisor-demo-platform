@@ -1,4 +1,5 @@
 """Inter-agent message schemas (Pydantic v2)."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -125,8 +126,10 @@ class DDAgentResult(BaseModel):
 
 # ── SSE streaming event ───────────────────────────────────────────────────────
 
+
 class DDProgressEvent(BaseModel):
     """Emitted over SSE to update the UI during a live DD run."""
+
     session_id: str
     event_type: str  # "criterion_started" | "criterion_complete" | "report_ready" | "hitl_flag" | "error"
     criterion_id: str | None = None

@@ -1,4 +1,5 @@
 """Evidence Gatherer Agent — retrieves KB evidence for one DD criterion."""
+
 from __future__ import annotations
 
 import logging
@@ -8,7 +9,7 @@ from strands import Agent
 from strands.models.bedrock import BedrockModel
 
 from ..schemas import EvidenceBundle, EvidenceExcerpt, EvidenceTask
-from .tools import kb_search, get_document_excerpt
+from .tools import get_document_excerpt, kb_search
 
 logger = logging.getLogger(__name__)
 

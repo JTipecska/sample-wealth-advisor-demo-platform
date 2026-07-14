@@ -1,15 +1,16 @@
 """Framework Assessor Agent — scores all criteria against the DD framework."""
+
 from __future__ import annotations
 
+import json
 import logging
 import os
 
 import boto3
-import json
 from strands import Agent
 from strands.models.bedrock import BedrockModel
 
-from ..framework import DD_FRAMEWORK_V1, FRAMEWORK_BY_ID, score_to_rag
+from ..framework import DD_FRAMEWORK_V1
 from ..schemas import AssessmentBundle, AssessmentTask, CriterionScore, EvidenceBundle
 
 logger = logging.getLogger(__name__)
@@ -39,7 +40,10 @@ Evidence ({n_excerpts} excerpts):
 
 Quantitative context: {quant_summary}
 
-Return JSON: {{"criterion_id": "{cid}", "score": <0-10 or null>, "confidence": <0-1>, "rationale": "...", "flags": [], "hitl_required": <bool>}}
+Return JSON: {{
+  "criterion_id": "{cid}", "score": <0-10 or null>, "confidence": <0-1>,
+  "rationale": "...", "flags": [], "hitl_required": <bool>
+}}
 """
 
 
@@ -102,13 +106,15 @@ async def assess_all_criteria(task: AssessmentTask) -> AssessmentBundle:
         bundle = evidence_by_criterion.get(cid, EvidenceBundle(criterion_id=cid, evidence_gap=True))
 
         if bundle.evidence_gap and not bundle.excerpts:
-            scores.append(CriterionScore(
-                criterion_id=cid,
-                score=0.0,
-                confidence=0.0,
-                rationale="Insufficient evidence — no relevant documents found in knowledge base.",
-                hitl_required=True,
-            ))
+            scores.append(
+                CriterionScore(
+                    criterion_id=cid,
+                    score=0.0,
+                    confidence=0.0,
+                    rationale="Insufficient evidence — no relevant documents found in knowledge base.",
+                    hitl_required=True,
+                )
+            )
             continue
 
         prompt = ASSESSMENT_PROMPT.format(
@@ -129,23 +135,27 @@ async def assess_all_criteria(task: AssessmentTask) -> AssessmentBundle:
             if score is not None:
                 total_weighted += score * criterion.weight
                 total_weight += criterion.weight
-            scores.append(CriterionScore(
-                criterion_id=cid,
-                score=score if score is not None else 0.0,
-                confidence=result.get("confidence", 0.5),
-                rationale=result.get("rationale", ""),
-                flags=result.get("flags", []),
-                hitl_required=result.get("hitl_required", False),
-            ))
+            scores.append(
+                CriterionScore(
+                    criterion_id=cid,
+                    score=score if score is not None else 0.0,
+                    confidence=result.get("confidence", 0.5),
+                    rationale=result.get("rationale", ""),
+                    flags=result.get("flags", []),
+                    hitl_required=result.get("hitl_required", False),
+                )
+            )
         except Exception as exc:
             logger.error("Assessment failed for %s: %s", cid, exc)
-            scores.append(CriterionScore(
-                criterion_id=cid,
-                score=0.0,
-                confidence=0.0,
-                rationale=f"Assessment error: {exc}",
-                hitl_required=True,
-            ))
+            scores.append(
+                CriterionScore(
+                    criterion_id=cid,
+                    score=0.0,
+                    confidence=0.0,
+                    rationale=f"Assessment error: {exc}",
+                    hitl_required=True,
+                )
+            )
 
     overall = (total_weighted / total_weight) if total_weight > 0 else 0.0
     return AssessmentBundle(
@@ -159,9 +169,7 @@ def create_agent() -> Agent:
     return Agent(
         name="Framework Assessor",
         description="Scores DD criteria against the framework rubric.",
-        model=BedrockModel(
-            model_id=os.environ.get("FRAMEWORK_ASSESSOR_MODEL_ID", "au.anthropic.claude-sonnet-4-6")
-        ),
+        model=BedrockModel(model_id=os.environ.get("FRAMEWORK_ASSESSOR_MODEL_ID", "au.anthropic.claude-sonnet-4-6")),
         system_prompt=SYSTEM_PROMPT,
         tools=[],
         callback_handler=None,

@@ -1,10 +1,10 @@
 """Quantitative Analyst Agent — extracts performance metrics from Redshift."""
+
 from __future__ import annotations
 
 import logging
 import math
 import os
-from datetime import datetime
 
 import boto3
 from strands import Agent, tool
@@ -54,6 +54,7 @@ def extract_performance_data(portfolio_id: str, window_years: int = 3) -> dict:
         )
         # Poll for result (simplified — production would use async polling)
         import time
+
         stmt_id = resp["Id"]
         for _ in range(30):
             status = client.describe_statement(Id=stmt_id)["Status"]
@@ -66,11 +67,13 @@ def extract_performance_data(portfolio_id: str, window_years: int = 3) -> dict:
         result = client.get_statement_result(Id=stmt_id)
         rows = []
         for record in result.get("Records", []):
-            rows.append({
-                "date": record[0].get("stringValue", ""),
-                "fund_return": float(record[1].get("doubleValue", 0) or 0),
-                "benchmark_return": float(record[2].get("doubleValue", 0) or 0),
-            })
+            rows.append(
+                {
+                    "date": record[0].get("stringValue", ""),
+                    "fund_return": float(record[1].get("doubleValue", 0) or 0),
+                    "benchmark_return": float(record[2].get("doubleValue", 0) or 0),
+                }
+            )
         return {"portfolio_id": portfolio_id, "returns": rows, "metadata": {"window_years": window_years}}
     except Exception as exc:
         logger.warning("Redshift query failed for %s: %s", portfolio_id, exc)
@@ -91,8 +94,12 @@ def calculate_metrics(raw_data: dict) -> dict:
     returns = raw_data.get("returns", [])
     if len(returns) < 3:
         return {
-            "annualised_return": None, "volatility": None, "sharpe_ratio": None,
-            "max_drawdown": None, "benchmark_excess_return": None, "attribution": {},
+            "annualised_return": None,
+            "volatility": None,
+            "sharpe_ratio": None,
+            "max_drawdown": None,
+            "benchmark_excess_return": None,
+            "attribution": {},
         }
 
     fund_rets = [r["fund_return"] for r in returns]
@@ -115,7 +122,7 @@ def calculate_metrics(raw_data: dict) -> dict:
     peak = 1.0
     max_dd = 0.0
     for r in fund_rets:
-        cumulative *= (1 + r)
+        cumulative *= 1 + r
         if cumulative > peak:
             peak = cumulative
         dd = (cumulative - peak) / peak

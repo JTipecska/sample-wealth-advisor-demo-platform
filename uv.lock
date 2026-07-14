@@ -4636,6 +4636,7 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "fastapi", extra = ["standard"] },
+    { name = "ruff" },
 ]
 
 [package.metadata]
@@ -4650,7 +4651,10 @@ requires-dist = [
 ]
 
 [package.metadata.requires-dev]
-dev = [{ name = "fastapi", extras = ["standard"], specifier = "==0.128.5" }]
+dev = [
+    { name = "fastapi", extras = ["standard"], specifier = "==0.128.5" },
+    { name = "ruff", specifier = ">=0.11.0" },
+]
 
 [[package]]
 name = "wealth-management-portal-client-search"
@@ -4869,6 +4873,7 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "fastapi", extra = ["standard"] },
+    { name = "ruff" },
 ]
 
 [package.metadata]
@@ -4886,7 +4891,10 @@ requires-dist = [
 ]
 
 [package.metadata.requires-dev]
-dev = [{ name = "fastapi", extras = ["standard"], specifier = "==0.128.5" }]
+dev = [
+    { name = "fastapi", extras = ["standard"], specifier = "==0.128.5" },
+    { name = "ruff", specifier = ">=0.11.0" },
+]
 
 [[package]]
 name = "wealth-management-portal-market-intelligence-chat"
@@ -4912,6 +4920,7 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "fastapi", extra = ["standard"] },
+    { name = "ruff" },
 ]
 
 [package.metadata]
@@ -4933,7 +4942,10 @@ requires-dist = [
 ]
 
 [package.metadata.requires-dev]
-dev = [{ name = "fastapi", extras = ["standard"], specifier = "==0.128.5" }]
+dev = [
+    { name = "fastapi", extras = ["standard"], specifier = "==0.128.5" },
+    { name = "ruff", specifier = ">=0.11.0" },
+]
 
 [[package]]
 name = "wealth-management-portal-neptune-analytics-core"
@@ -4944,11 +4956,19 @@ dependencies = [
     { name = "pyyaml" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "ruff" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "boto3", specifier = "==1.42.44" },
     { name = "pyyaml", specifier = ">=6.0" },
 ]
+
+[package.metadata.requires-dev]
+dev = [{ name = "ruff", specifier = ">=0.11.0" }]
 
 [[package]]
 name = "wealth-management-portal-neptune-analytics-server"
@@ -5037,6 +5057,7 @@ dev = [
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "python-dotenv" },
+    { name = "ruff" },
 ]
 
 [package.metadata]
@@ -5061,6 +5082,7 @@ dev = [
     { name = "pytest", specifier = ">=8.0.0" },
     { name = "pytest-asyncio", specifier = ">=0.23.0" },
     { name = "python-dotenv", specifier = ">=1.2.1" },
+    { name = "ruff", specifier = ">=0.11.0" },
 ]
 
 [[package]]
@@ -5104,6 +5126,7 @@ dev = [
     { name = "fastapi", extra = ["standard"] },
     { name = "moto", extra = ["s3"] },
     { name = "python-dotenv" },
+    { name = "ruff" },
 ]
 
 [package.metadata]
@@ -5127,6 +5150,7 @@ dev = [
     { name = "fastapi", extras = ["standard"], specifier = "==0.128.5" },
     { name = "moto", extras = ["s3"], specifier = ">=5.0.0" },
     { name = "python-dotenv", specifier = ">=1.2.1" },
+    { name = "ruff", specifier = ">=0.11.0" },
 ]
 
 [[package]]
@@ -5231,6 +5255,11 @@ dependencies = [
     { name = "wealth-management-portal-common-market-events" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "ruff" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "aws-opentelemetry-distro", specifier = "==0.15.0" },
@@ -5246,6 +5275,9 @@ requires-dist = [
     { name = "wealth-management-portal-common-auth", editable = "packages/common_auth" },
     { name = "wealth-management-portal-common-market-events", editable = "packages/common_market_events/common_market_events" },
 ]
+
+[package.metadata.requires-dev]
+dev = [{ name = "ruff", specifier = ">=0.11.0" }]
 
 [[package]]
 name = "weasyprint"

@@ -1,4 +1,5 @@
 """A2A client — calls agent endpoints, falling back to localhost in dev."""
+
 from __future__ import annotations
 
 import os

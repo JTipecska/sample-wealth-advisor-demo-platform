@@ -4,6 +4,7 @@ Uses AWS Bedrock Claude for intelligent query understanding
 """
 
 import json
+import os
 import re
 from dataclasses import dataclass
 

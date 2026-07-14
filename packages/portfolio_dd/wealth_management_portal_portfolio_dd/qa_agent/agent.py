@@ -1,4 +1,5 @@
 """QA Agent — validates report completeness, citation accuracy, and scores."""
+
 from __future__ import annotations
 
 import logging
@@ -49,7 +50,8 @@ async def qa_check(task: QATask) -> QAResult:
             score = scores_by_id.get(cid, 0)
             if score < 4.0 and ("strong" in content_lower or "excellent" in content_lower):
                 revision_notes.append(
-                    f"Section '{section.title}' contains positive language for low-scored criterion {cid} (score {score:.1f})"
+                    f"Section '{section.title}' contains positive language "
+                    f"for low-scored criterion {cid} (score {score:.1f})"
                 )
 
     # Check recommendation consistency
@@ -81,9 +83,7 @@ def create_agent() -> Agent:
     return Agent(
         name="QA Agent",
         description="Validates DD report completeness and accuracy.",
-        model=BedrockModel(
-            model_id=os.environ.get("QA_AGENT_MODEL_ID", "au.anthropic.claude-haiku-4-5-20251001-v1:0")
-        ),
+        model=BedrockModel(model_id=os.environ.get("QA_AGENT_MODEL_ID", "au.anthropic.claude-haiku-4-5-20251001-v1:0")),
         system_prompt=SYSTEM_PROMPT,
         tools=[],
         callback_handler=None,

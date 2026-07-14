@@ -1,12 +1,13 @@
 """Portfolio Due Diligence REST API with SSE streaming."""
+
 from __future__ import annotations
 
 import asyncio
-import json
+import contextlib
 import logging
 import os
+from collections.abc import AsyncGenerator
 from datetime import datetime
-from typing import AsyncGenerator
 from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException
@@ -16,7 +17,7 @@ from pydantic import BaseModel
 
 from ..common.a2a_client import get_agent_endpoint, invoke_agent
 from ..models import DDReport, DDSession, DDStatus
-from ..schemas import DDRequest, DDProgressEvent
+from ..schemas import DDProgressEvent, DDRequest
 from ..seed_data import MANAGER_BY_PORTFOLIO, SAMPLE_PORTFOLIOS
 
 logging.basicConfig(level=logging.INFO)
@@ -33,6 +34,7 @@ _hitl_flags: dict[str, dict[str, dict]] = {}  # session_id → flag_id → flag
 
 
 # ── Request/Response models ────────────────────────────────────────────────────
+
 
 class StartReviewRequest(BaseModel):
     portfolio_id: str
@@ -67,24 +69,26 @@ class HITLResolveRequest(BaseModel):
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
+
 def _emit(session_id: str, event: DDProgressEvent) -> None:
     q = _progress_queues.get(session_id)
     if q:
-        try:
+        with contextlib.suppress(asyncio.QueueFull):
             q.put_nowait(event)
-        except asyncio.QueueFull:
-            pass
 
 
 async def _run_pipeline(session: DDSession) -> None:
     """Background task — drives the supervisor and emits SSE progress events."""
     session_id = session.session_id
 
-    _emit(session_id, DDProgressEvent(
-        session_id=session_id,
-        event_type="pipeline_started",
-        message=f"Starting due diligence for {session.portfolio_name}",
-    ))
+    _emit(
+        session_id,
+        DDProgressEvent(
+            session_id=session_id,
+            event_type="pipeline_started",
+            message=f"Starting due diligence for {session.portfolio_name}",
+        ),
+    )
 
     mgr_name = session.manager_name
 
@@ -119,34 +123,43 @@ async def _run_pipeline(session: DDSession) -> None:
                     "resolved_at": None,
                     "reviewer_notes": "",
                 }
-                _emit(session_id, DDProgressEvent(
-                    session_id=session_id,
-                    event_type="hitl_flag",
-                    message=reason,
-                    data={"flag_id": flag_id},
-                ))
+                _emit(
+                    session_id,
+                    DDProgressEvent(
+                        session_id=session_id,
+                        event_type="hitl_flag",
+                        message=reason,
+                        data={"flag_id": flag_id},
+                    ),
+                )
             _hitl_flags[session_id] = flags
 
-        _emit(session_id, DDProgressEvent(
-            session_id=session_id,
-            event_type="report_ready",
-            message="Due diligence report is ready.",
-            score=report.overall_score,
-            data={
-                "recommendation": report.recommendation,
-                "overall_rag": report.overall_rag,
-                "hitl_required": report.hitl_required,
-            },
-        ))
+        _emit(
+            session_id,
+            DDProgressEvent(
+                session_id=session_id,
+                event_type="report_ready",
+                message="Due diligence report is ready.",
+                score=report.overall_score,
+                data={
+                    "recommendation": report.recommendation,
+                    "overall_rag": report.overall_rag,
+                    "hitl_required": report.hitl_required,
+                },
+            ),
+        )
 
     except Exception as exc:
         logger.error("Pipeline failed for session %s: %s", session_id, exc)
         session.status = DDStatus.FAILED
-        _emit(session_id, DDProgressEvent(
-            session_id=session_id,
-            event_type="error",
-            message=str(exc),
-        ))
+        _emit(
+            session_id,
+            DDProgressEvent(
+                session_id=session_id,
+                event_type="error",
+                message=str(exc),
+            ),
+        )
     finally:
         # Sentinel to close SSE stream
         q = _progress_queues.get(session_id)
@@ -155,6 +168,7 @@ async def _run_pipeline(session: DDSession) -> None:
 
 
 # ── Endpoints ──────────────────────────────────────────────────────────────────
+
 
 @app.get("/ping")
 def ping():
@@ -227,7 +241,7 @@ async def stream_progress(session_id: str):
         while True:
             try:
                 event = await asyncio.wait_for(queue.get(), timeout=30.0)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 yield ": keepalive\n\n"
                 continue
 
@@ -302,4 +316,5 @@ async def list_portfolios():
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 8092)))
