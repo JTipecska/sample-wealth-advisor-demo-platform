@@ -79,11 +79,13 @@ phases:
           aws lakeformation put-data-lake-settings --region $AWS_REGION --cli-input-json file:///tmp/lf-settings.json
           echo "Added as LF admin"
         fi
-      # Post-deploy grants
-      - pnpm nx grant-lf-permissions @wealth-management-portal/infra
-      - pnpm nx grant-redshift-permissions @wealth-management-portal/infra
-      # Load graph data
-      - uv run python scripts/load-neptune-data.py --region $AWS_REGION
+      # Post-deploy grants — guarded: these require the data platform (Redshift/LF) to be
+      # deployed first. They warn and continue when that platform is absent so the app
+      # CDK stack can be re-deployed independently without a full platform setup.
+      - pnpm nx grant-lf-permissions @wealth-management-portal/infra || echo "WARNING: LF grants skipped (data platform not yet deployed)"
+      - pnpm nx grant-redshift-permissions @wealth-management-portal/infra || echo "WARNING: Redshift grants skipped (data platform not yet deployed)"
+      # Load graph data — guarded: Neptune graph SSM param written by CDK; skip if missing
+      - uv run python scripts/load-neptune-data.py --region $AWS_REGION || echo "WARNING: Neptune data load skipped"
       # Trigger step functions once to seed initial data (schedulers are deployed disabled)
       - |
         echo "Triggering step function executions..."
@@ -93,15 +95,13 @@ phases:
           aws stepfunctions start-execution --state-machine-arn "$REPORT_SM_ARN" --region $AWS_REGION
           echo "  ✓ Started ReportScheduler execution"
         else
-          echo "  ✗ ReportScheduler state machine not found"
-          exit 1
+          echo "  ✗ ReportScheduler state machine not found — skipping (deploy the app stack first)"
         fi
         if [ "$THEME_SM_ARN" != "None" ] && [ -n "$THEME_SM_ARN" ]; then
           aws stepfunctions start-execution --state-machine-arn "$THEME_SM_ARN" --region $AWS_REGION
           echo "  ✓ Started ThemeScheduler execution"
         else
-          echo "  ✗ ThemeScheduler state machine not found"
-          exit 1
+          echo "  ✗ ThemeScheduler state machine not found — skipping (deploy the app stack first)"
         fi
       # Create test user (non-interactive)
       - pnpm nx create-user @wealth-management-portal/infra -- --email=$TEST_USER_EMAIL --password=$TEST_USER_PASSWORD

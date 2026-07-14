@@ -107,16 +107,27 @@ if [[ -z "${PORTFOLIO_GATEWAY_URL:-}" || -z "${REPORT_S3_BUCKET:-}" ]]; then
 fi
 
 # ── Validate required variables ──────────────────────────────────────
+# AWS_REGION and REDSHIFT_DATABASE are always available from SSM — hard-require them.
+# VPC/Redshift vars come from the data platform; warn but continue if absent so the
+# app CDK stack can deploy independently (it uses safe defaults for workgroup names).
 missing=()
-for var in AWS_REGION REDSHIFT_WORKGROUP REDSHIFT_DATABASE REDSHIFT_VPC_ID \
-           PRIVATE_SUBNET_IDS REDSHIFT_SECURITY_GROUP_ID PRIVATE_ROUTE_TABLE_ID; do
+for var in AWS_REGION REDSHIFT_DATABASE; do
   [[ -z "${!var:-}" ]] && missing+=("$var")
 done
 
 if [[ ${#missing[@]} -gt 0 ]]; then
-  echo "ERROR: Missing required variables (not in env and not discoverable from data-platform SSM): ${missing[*]}" >&2
+  echo "ERROR: Missing required variables (not in env and not discoverable from SSM): ${missing[*]}" >&2
   exit 1
 fi
+
+for var in REDSHIFT_VPC_ID PRIVATE_SUBNET_IDS REDSHIFT_SECURITY_GROUP_ID PRIVATE_ROUTE_TABLE_ID; do
+  if [[ -z "${!var:-}" ]]; then
+    echo "WARNING: $var not set — data-platform features will be limited until platform is deployed" >&2
+  fi
+done
+
+# Apply safe CDK defaults for data-platform vars not yet discoverable
+REDSHIFT_WORKGROUP="${REDSHIFT_WORKGROUP:-financial-advisor-wg}"
 
 # ── Write .env ───────────────────────────────────────────────────────
 cat > "$ENV_FILE" <<EOF
@@ -129,8 +140,8 @@ REDSHIFT_VPC_ID=${REDSHIFT_VPC_ID}
 PRIVATE_SUBNET_IDS=${PRIVATE_SUBNET_IDS}
 REDSHIFT_SECURITY_GROUP_ID=${REDSHIFT_SECURITY_GROUP_ID}
 PRIVATE_ROUTE_TABLE_ID=${PRIVATE_ROUTE_TABLE_ID}
-REPORT_BEDROCK_MODEL_ID=${REPORT_BEDROCK_MODEL_ID:-us.anthropic.claude-sonnet-4-5-20250929-v1:0}
-THEME_BEDROCK_MODEL_ID=${THEME_BEDROCK_MODEL_ID:-us.anthropic.claude-sonnet-4-5-20250929-v1:0}
+REPORT_BEDROCK_MODEL_ID=${REPORT_BEDROCK_MODEL_ID:-au.anthropic.claude-sonnet-4-6}
+THEME_BEDROCK_MODEL_ID=${THEME_BEDROCK_MODEL_ID:-au.anthropic.claude-sonnet-4-6}
 DEPLOY_BASTION=${DEPLOY_BASTION:-false}
 NEPTUNE_GRAPH_ID=${NEPTUNE_GRAPH_ID:-}
 PRIVATE_SUBNET_AZ=${PRIVATE_SUBNET_AZ:-}

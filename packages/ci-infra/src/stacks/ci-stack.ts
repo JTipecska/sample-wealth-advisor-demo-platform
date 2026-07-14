@@ -46,10 +46,7 @@ export class CiStack extends Stack {
         bucket: sourceBucket,
         path: 'source.zip',
       }),
-      buildSpec: codebuild.BuildSpec.fromObject({
-        version: '0.2',
-        phases: { build: { commands: ['echo override'] } },
-      }),
+      buildSpec: codebuild.BuildSpec.fromSourceFilename('buildspec-app.yml'),
       environment: {
         buildImage: codebuild.LinuxArmBuildImage.fromCodeBuildImageId(
           'aws/codebuild/amazonlinux2-aarch64-standard:3.0',
@@ -122,10 +119,9 @@ export class CiStack extends Stack {
           bucket: sourceBucket,
           path: 'source.zip',
         }),
-        buildSpec: codebuild.BuildSpec.fromObject({
-          version: '0.2',
-          phases: { build: { commands: ['echo override'] } },
-        }),
+        buildSpec: codebuild.BuildSpec.fromSourceFilename(
+          'buildspec-platform.yml',
+        ),
         environment: {
           buildImage: codebuild.LinuxArmBuildImage.fromCodeBuildImageId(
             'aws/codebuild/amazonlinux2-aarch64-standard:3.0',
