@@ -19,11 +19,20 @@ import {
   Api,
   DatabaseAgent,
   ClientSearchAgent,
+  DDEvidenceGatherer,
+  DDFrameworkAssessor,
+  DDQaAgent,
+  DDQuantAnalyst,
+  DDReportDrafter,
+  DDReportsTable,
+  DDSessionsTable,
+  DDSupervisor,
   EmailSenderGateway,
   GraphSearchAgent,
   GraphSearchApi,
   IntelligenceApi,
   NeptuneGraph,
+  PortfolioDdApi,
   StockDataAgent,
   NeptuneAnalyticsGateway,
   PortfolioDataGateway,
@@ -62,20 +71,22 @@ export class ApplicationStack extends Stack {
     const identity = new UserIdentity(this, 'Identity');
 
     // Core API — dashboard, clients, holdings, transactions, report
-    const vpcConfig = {
-      vpcId: this.node.tryGetContext('redshiftVpcId'),
-      privateSubnetIds: this.node.tryGetContext('privateSubnetIds'),
-      redshiftSecurityGroupId: this.node.tryGetContext(
-        'redshiftSecurityGroupId',
-      ),
-    };
+    const redshiftVpcId = this.node.tryGetContext('redshiftVpcId');
+    const privateSubnetIds = this.node.tryGetContext('privateSubnetIds');
+    const redshiftSecurityGroupId = this.node.tryGetContext(
+      'redshiftSecurityGroupId',
+    );
+    const vpcConfig =
+      redshiftVpcId && privateSubnetIds && redshiftSecurityGroupId
+        ? { vpcId: redshiftVpcId, privateSubnetIds, redshiftSecurityGroupId }
+        : undefined;
 
     const api = new Api(this, 'Api', {
       integrations: Api.defaultIntegrations(this, vpcConfig).build(),
       identity,
-      vpcId: vpcConfig.vpcId,
-      privateSubnetIds: vpcConfig.privateSubnetIds,
-      redshiftSecurityGroupId: vpcConfig.redshiftSecurityGroupId,
+      vpcId: redshiftVpcId,
+      privateSubnetIds,
+      redshiftSecurityGroupId,
     });
 
     // Intelligence API — chat (heavy AI/ML dependencies isolated)
@@ -112,7 +123,15 @@ export class ApplicationStack extends Stack {
     let schedulerGatewayUrlValue = '';
     let emailSenderGatewayUrlValue = '';
 
-    // React website (must be declared after APIs and identity for runtime config)
+    // Lazy placeholder for Portfolio DD API URL — resolved after construct is created
+    let portfolioDdApiUrlValue = '';
+    RuntimeConfig.ensure(this).config.apis = {
+      ...RuntimeConfig.ensure(this).config.apis,
+      PortfolioDDApi: Lazy.string({ produce: () => portfolioDdApiUrlValue }),
+    };
+
+    // React website — MUST be declared after ALL RuntimeConfig registrations
+    // (Source.jsonData snapshots config eagerly; later mutations are lost unless Lazy tokens)
     const ui = new Ui(this, 'Ui');
 
     // ── CloudWatch RUM ────────────────────────────────────────────────────
@@ -1059,5 +1078,173 @@ export class ApplicationStack extends Stack {
         roleArn: schedulerRole.roleArn,
       },
     });
+
+    // ── Portfolio Due Diligence ───────────────────────────────────────────
+
+    // DynamoDB tables for DD sessions and reports
+    const ddSessionsTable = new DDSessionsTable(this, 'DDSessionsTable');
+    const ddReportsTable = new DDReportsTable(this, 'DDReportsTable');
+
+    // DD Specialist Agents (AgentCore Runtimes)
+    const ddEvidenceGatherer = new DDEvidenceGatherer(
+      this,
+      'DDEvidenceGatherer',
+      {
+        environmentVariables: {
+          AWS_REGION: this.region,
+        },
+      },
+    );
+
+    const ddFrameworkAssessor = new DDFrameworkAssessor(
+      this,
+      'DDFrameworkAssessor',
+      {
+        environmentVariables: {
+          AWS_REGION: this.region,
+        },
+      },
+    );
+
+    const ddQuantAnalyst = new DDQuantAnalyst(this, 'DDQuantAnalyst', {
+      environmentVariables: {
+        AWS_REGION: this.region,
+        REDSHIFT_WORKGROUP: redshiftWorkgroup,
+        REDSHIFT_DATABASE: redshiftDatabase,
+      },
+    });
+
+    const ddReportDrafter = new DDReportDrafter(this, 'DDReportDrafter', {
+      environmentVariables: {
+        AWS_REGION: this.region,
+      },
+    });
+
+    const ddQaAgent = new DDQaAgent(this, 'DDQaAgent', {
+      environmentVariables: {
+        AWS_REGION: this.region,
+      },
+    });
+
+    const ddSupervisor = new DDSupervisor(this, 'DDSupervisor', {
+      environmentVariables: {
+        AWS_REGION: this.region,
+        EVIDENCE_GATHERER_ARN:
+          ddEvidenceGatherer.agentCoreRuntime.agentRuntimeArn,
+        FRAMEWORK_ASSESSOR_ARN:
+          ddFrameworkAssessor.agentCoreRuntime.agentRuntimeArn,
+        QUANT_ANALYST_ARN: ddQuantAnalyst.agentCoreRuntime.agentRuntimeArn,
+        REPORT_DRAFTER_ARN: ddReportDrafter.agentCoreRuntime.agentRuntimeArn,
+        QA_AGENT_ARN: ddQaAgent.agentCoreRuntime.agentRuntimeArn,
+      },
+    });
+
+    // SLR rate-limit avoidance
+    ddSupervisor.node.addDependency(graphSearchAgent);
+
+    // Grant supervisor permission to invoke downstream agents
+    ddEvidenceGatherer.agentCoreRuntime.grantInvoke(
+      ddSupervisor.agentCoreRuntime,
+    );
+    ddFrameworkAssessor.agentCoreRuntime.grantInvoke(
+      ddSupervisor.agentCoreRuntime,
+    );
+    ddQuantAnalyst.agentCoreRuntime.grantInvoke(ddSupervisor.agentCoreRuntime);
+    ddReportDrafter.agentCoreRuntime.grantInvoke(
+      ddSupervisor.agentCoreRuntime,
+    );
+    ddQaAgent.agentCoreRuntime.grantInvoke(ddSupervisor.agentCoreRuntime);
+
+    // Grant Bedrock model access to agents that use LLMs
+    for (const agent of [
+      ddSupervisor,
+      ddEvidenceGatherer,
+      ddFrameworkAssessor,
+      ddReportDrafter,
+    ]) {
+      agent.agentCoreRuntime.role.addToPrincipalPolicy(
+        new PolicyStatement({
+          actions: [
+            'bedrock:InvokeModel',
+            'bedrock:InvokeModelWithResponseStream',
+          ],
+          resources: [
+            'arn:aws:bedrock:*::foundation-model/*',
+            `arn:aws:bedrock:*:${this.account}:inference-profile/*`,
+          ],
+        }),
+      );
+    }
+
+    // Grant evidence-gatherer access to Bedrock Knowledge Bases
+    ddEvidenceGatherer.agentCoreRuntime.role.addToPrincipalPolicy(
+      new PolicyStatement({
+        actions: [
+          'bedrock:Retrieve',
+          'bedrock:RetrieveAndGenerate',
+        ],
+        resources: ['*'],
+      }),
+    );
+
+    // Grant quant-analyst Redshift access
+    ddQuantAnalyst.agentCoreRuntime.role.addToPrincipalPolicy(
+      new PolicyStatement({
+        actions: [
+          'redshift-data:ExecuteStatement',
+          'redshift-data:DescribeStatement',
+          'redshift-data:GetStatementResult',
+          'redshift-serverless:GetCredentials',
+          'redshift-serverless:GetWorkgroup',
+        ],
+        resources: [
+          `arn:aws:redshift-serverless:${this.region}:${this.account}:workgroup/*`,
+        ],
+      }),
+    );
+    ddQuantAnalyst.agentCoreRuntime.role.addToPrincipalPolicy(
+      new PolicyStatement({
+        actions: [
+          'redshift-data:DescribeStatement',
+          'redshift-data:GetStatementResult',
+        ],
+        resources: ['*'],
+      }),
+    );
+
+    // Portfolio DD REST API — handler created outside API construct to avoid circular deps
+    const portfolioDdHandler = PortfolioDdApi.createHandler(this);
+
+    // Grant permissions BEFORE creating the API construct
+    ddSessionsTable.grantReadWriteData(portfolioDdHandler);
+    ddReportsTable.grantReadWriteData(portfolioDdHandler);
+    ddSupervisor.agentCoreRuntime.grantInvoke(portfolioDdHandler);
+    portfolioDdHandler.addToRolePolicy(
+      new PolicyStatement({
+        actions: ['lambda:InvokeFunction'],
+        resources: ['*'],
+      }),
+    );
+    portfolioDdHandler.addEnvironment(
+      'DD_SESSIONS_TABLE',
+      ddSessionsTable.tableName,
+    );
+    portfolioDdHandler.addEnvironment(
+      'DD_REPORTS_TABLE',
+      ddReportsTable.tableName,
+    );
+    portfolioDdHandler.addEnvironment(
+      'DD_SUPERVISOR_ARN',
+      ddSupervisor.agentCoreRuntime.agentRuntimeArn,
+    );
+
+    const portfolioDdApi = new PortfolioDdApi(this, 'PortfolioDdApi', {
+      identity,
+      handler: portfolioDdHandler,
+    });
+    portfolioDdApi.restrictCorsTo(ui);
+
+    // Fill the Lazy placeholder registered before new Ui()
+    portfolioDdApiUrlValue = portfolioDdApi.api.url!;
   }
 }

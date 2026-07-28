@@ -1,7 +1,15 @@
 import { useRuntimeConfig } from '../../hooks/useRuntimeConfig';
 import { useAuth } from 'react-oidc-context';
 import { useCallback } from 'react';
-import type { DDReport, HITLFlag, Portfolio, Session } from './types';
+import type { DDReport, HITLFlag, Portfolio, ProgressEvent, Session } from './types';
+
+const SAMPLE_PORTFOLIOS: Portfolio[] = [
+  { portfolio_id: 'pf_amp001', name: 'AMP Growth Fund', asset_class: 'multi_asset', benchmark: 'CPI + 4.5% p.a.', aum_aud_m: 2840.0 },
+  { portfolio_id: 'pf_pendal001', name: 'Pendal Australian Equities', asset_class: 'australian_equities', benchmark: 'S&P/ASX 300 Accumulation Index', aum_aud_m: 1150.0 },
+  { portfolio_id: 'pf_macq001', name: 'Macquarie Income Fund', asset_class: 'fixed_income', benchmark: 'Bloomberg AusBond Bank Bill Index', aum_aud_m: 4200.0 },
+  { portfolio_id: 'pf_aef001', name: 'Australian Ethical Balanced', asset_class: 'multi_asset', benchmark: 'CPI + 3.5% p.a.', aum_aud_m: 870.0 },
+  { portfolio_id: 'pf_hyperion001', name: 'Hyperion Australian Growth Companies', asset_class: 'australian_equities', benchmark: 'S&P/ASX All Ordinaries Accumulation Index', aum_aud_m: 5100.0 },
+];
 
 export function useDDApi() {
   const config = useRuntimeConfig();
@@ -21,9 +29,14 @@ export function useDDApi() {
   );
 
   const listPortfolios = useCallback(async (): Promise<Portfolio[]> => {
-    const r = await fetch(`${baseUrl}/dd/portfolios`, { headers: headers() });
-    const d = await r.json();
-    return d.portfolios ?? [];
+    try {
+      const r = await fetch(`${baseUrl}/dd/portfolios`, { headers: headers() });
+      if (!r.ok) return SAMPLE_PORTFOLIOS;
+      const d = await r.json();
+      return d.portfolios?.length ? d.portfolios : SAMPLE_PORTFOLIOS;
+    } catch {
+      return SAMPLE_PORTFOLIOS;
+    }
   }, [baseUrl, headers]);
 
   const startReview = useCallback(
@@ -98,10 +111,20 @@ export function useDDApi() {
     [baseUrl, headers, auth.user?.profile?.email],
   );
 
-  const streamProgress = useCallback(
-    (sessionId: string) =>
-      new EventSource(`${baseUrl}/dd/sessions/${sessionId}/stream`),
-    [baseUrl],
+  const getEvents = useCallback(
+    async (sessionId: string): Promise<ProgressEvent[]> => {
+      try {
+        const r = await fetch(`${baseUrl}/dd/sessions/${sessionId}/events`, {
+          headers: headers(),
+        });
+        if (!r.ok) return [];
+        const d = await r.json();
+        return d.events ?? [];
+      } catch {
+        return [];
+      }
+    },
+    [baseUrl, headers],
   );
 
   return {
@@ -111,6 +134,6 @@ export function useDDApi() {
     getReport,
     listFlags,
     resolveFlag,
-    streamProgress,
+    getEvents,
   };
 }

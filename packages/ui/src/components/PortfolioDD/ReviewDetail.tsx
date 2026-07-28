@@ -24,60 +24,30 @@ export function ReviewDetail() {
   const [resolvingId, setResolvingId] = useState<string | null>(null);
   const [resolveNotes, setResolveNotes] = useState('');
   const feedRef = useRef<HTMLDivElement>(null);
-  const esRef = useRef<EventSource | null>(null);
-
-  useEffect(() => {
-    api.getSession(reviewId).then(setSession).catch(noop);
-  }, [reviewId]);
 
   useEffect(() => {
     if (!reviewId) return;
-    const es = api.streamProgress(reviewId);
-    esRef.current = es;
 
-    es.addEventListener('pipeline_started', (e) => {
-      const data: ProgressEvent = JSON.parse((e as MessageEvent).data);
-      setEvents((prev) => [...prev, data]);
-    });
-
-    es.addEventListener('criterion_complete', (e) => {
-      const data: ProgressEvent = JSON.parse((e as MessageEvent).data);
-      setEvents((prev) => [...prev, data]);
-    });
-
-    es.addEventListener('hitl_flag', (e) => {
-      const data: ProgressEvent = JSON.parse((e as MessageEvent).data);
-      setEvents((prev) => [...prev, data]);
-      setFlags((prev) => [
-        ...prev,
-        {
-          flag_id: (data.data?.flag_id as string) ?? '',
-          reason: data.message,
-          status: 'pending',
-          reviewer_notes: '',
-        },
-      ]);
-    });
-
-    es.addEventListener('report_ready', (e) => {
-      const data: ProgressEvent = JSON.parse((e as MessageEvent).data);
-      setEvents((prev) => [...prev, data]);
-      api.getSession(reviewId).then(setSession).catch(noop);
-      api.listFlags(reviewId).then(setFlags).catch(noop);
-    });
-
-    es.addEventListener('error', (e) => {
-      const data: ProgressEvent = JSON.parse((e as MessageEvent).data);
-      setEvents((prev) => [...prev, data]);
-    });
-
-    es.addEventListener('done', () => {
-      es.close();
-    });
-
-    return () => {
-      es.close();
+    const poll = async () => {
+      try {
+        const s = await api.getSession(reviewId);
+        setSession(s);
+        const evts = await api.getEvents(reviewId);
+        setEvents(evts);
+        if (s.status === 'complete' || s.status === 'failed') {
+          clearInterval(intervalId);
+          if (s.status === 'complete') {
+            api.listFlags(reviewId).then(setFlags).catch(noop);
+          }
+        }
+      } catch {
+        // API may not be ready yet, keep polling
+      }
     };
+
+    poll();
+    const intervalId = setInterval(poll, 3000);
+    return () => clearInterval(intervalId);
   }, [reviewId]);
 
   useEffect(() => {

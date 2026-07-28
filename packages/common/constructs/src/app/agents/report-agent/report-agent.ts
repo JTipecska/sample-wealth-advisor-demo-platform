@@ -4,6 +4,7 @@ import {
   Bucket,
   BlockPublicAccess,
   BucketEncryption,
+  ObjectOwnership,
 } from 'aws-cdk-lib/aws-s3';
 import { Construct } from 'constructs';
 import { execSync } from 'child_process';
@@ -38,6 +39,7 @@ export class ReportAgent extends Construct {
       enforceSSL: true,
       blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
       encryption: BucketEncryption.S3_MANAGED,
+      objectOwnership: ObjectOwnership.BUCKET_OWNER_ENFORCED,
       removalPolicy: RemovalPolicy.RETAIN,
     });
     suppressRules(
@@ -57,8 +59,6 @@ export class ReportAgent extends Construct {
       versioned: true,
       enforceSSL: true,
       removalPolicy: RemovalPolicy.RETAIN,
-      serverAccessLogsBucket: accessLogsBucket,
-      serverAccessLogsPrefix: 'report-bucket-logs/',
     });
 
     this.dockerImage = AgentRuntimeArtifact.fromAsset(
