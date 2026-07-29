@@ -126,7 +126,7 @@ class ThemeProcessor:
         self.use_cross_region = use_cross_region
 
         # Model ID
-        self.model_id = os.environ.get("THEME_BEDROCK_MODEL_ID", "au.anthropic.claude-sonnet-4-6")
+        self.model_id = os.environ.get("THEME_BEDROCK_MODEL_ID", "au.anthropic.claude-sonnet-5-v1:0")
 
     def get_recent_articles(self, hours: int = 48) -> list[Article]:
         """

@@ -25,7 +25,7 @@ class InternalServerErrorDetails(BaseModel):
 
 
 app = FastAPI(title="PortfolioDDApi", responses={500: {"model": InternalServerErrorDetails}})
-lambda_handler = Mangum(app)
+lambda_handler = Mangum(app, lifespan="off")
 
 lambda_handler.__name__ = "handler"
 lambda_handler = tracer.capture_lambda_handler(lambda_handler)

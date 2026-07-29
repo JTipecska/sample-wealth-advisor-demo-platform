@@ -2,6 +2,7 @@
 
 import json
 import logging
+import os
 import re
 
 import boto3
@@ -143,7 +144,7 @@ def _generate_sql(nl_query: str) -> str:
         "bedrock-runtime", config=Config(region_name="us-east-1", retries={"max_attempts": 3, "mode": "adaptive"})
     )
     response = bedrock.invoke_model(
-        modelId="us.anthropic.claude-3-5-sonnet-20241022-v2:0",
+        modelId=os.environ.get("CLIENT_SEARCH_MODEL_ID", "au.anthropic.claude-sonnet-5-v1:0"),
         body=json.dumps(
             {
                 "anthropic_version": "bedrock-2023-05-31",

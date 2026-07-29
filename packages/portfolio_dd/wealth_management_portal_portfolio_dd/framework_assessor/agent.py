@@ -73,7 +73,7 @@ def _format_quant(quant_bundle) -> str:
 
 def _invoke_bedrock(prompt: str) -> dict:
     """Call Bedrock directly for single-criterion assessment."""
-    model_id = os.environ.get("FRAMEWORK_ASSESSOR_MODEL_ID", "au.anthropic.claude-sonnet-4-6")
+    model_id = os.environ.get("FRAMEWORK_ASSESSOR_MODEL_ID", "au.anthropic.claude-sonnet-5-v1:0")
     client = boto3.client("bedrock-runtime", region_name=os.environ.get("AWS_REGION", "ap-southeast-2"))
     body = {
         "anthropic_version": "bedrock-2023-05-31",
@@ -169,7 +169,7 @@ def create_agent() -> Agent:
     return Agent(
         name="Framework Assessor",
         description="Scores DD criteria against the framework rubric.",
-        model=BedrockModel(model_id=os.environ.get("FRAMEWORK_ASSESSOR_MODEL_ID", "au.anthropic.claude-sonnet-4-6")),
+        model=BedrockModel(model_id=os.environ.get("FRAMEWORK_ASSESSOR_MODEL_ID", "au.anthropic.claude-sonnet-5-v1:0")),
         system_prompt=SYSTEM_PROMPT,
         tools=[],
         callback_handler=None,

@@ -250,8 +250,8 @@ class _DirectThemeProcessor(_ThemeProcessor):
         self.bedrock = boto3.client("bedrock-runtime", config=config)
         self.use_cross_region = use_cross_region
         self.model_id = (
-            "us.anthropic.claude-3-5-sonnet-20241022-v2:0" if use_cross_region
-            else "anthropic.claude-3-5-sonnet-20241022-v2:0"
+            "us.anthropic.claude-sonnet-5-v1:0" if use_cross_region
+            else "au.anthropic.claude-sonnet-5-v1:0"
         )
         self.mcp_client = None  # not used
 

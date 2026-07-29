@@ -82,12 +82,19 @@ async def _invoke_via_http(endpoint: str, payload_json: str, timeout: float = 12
 
 async def _invoke_via_agentcore(agent_arn: str, payload_json: str) -> Any:
     """Invoke an AgentCore Runtime agent by ARN."""
-    import boto3
+    import uuid
 
-    client = boto3.client("bedrock-agentcore-runtime")
+    import boto3
+    import botocore.config
+
+    client = boto3.client(
+        "bedrock-agentcore",
+        config=botocore.config.Config(read_timeout=290),
+    )
     response = client.invoke_agent_runtime(
         agentRuntimeArn=agent_arn,
-        payload=payload_json.encode("utf-8"),
+        runtimeSessionId=f"dd-{uuid.uuid4().hex[:12]}",
+        payload=payload_json.encode("utf-8") if isinstance(payload_json, str) else payload_json,
     )
-    response_payload = response["payload"].read().decode("utf-8")
-    return json.loads(response_payload)
+    response_body = response["response"].read().decode("utf-8")
+    return json.loads(response_body)

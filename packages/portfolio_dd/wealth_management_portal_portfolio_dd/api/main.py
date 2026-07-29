@@ -412,6 +412,11 @@ def handler(event, context):
             )
         )
         return {"status": "done"}
+    # Ensure event loop exists for Mangum (Python 3.12 doesn't auto-create one)
+    try:
+        asyncio.get_event_loop()
+    except RuntimeError:
+        asyncio.set_event_loop(asyncio.new_event_loop())
     return _mangum_handler(event, context)
 
 
