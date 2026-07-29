@@ -1150,9 +1150,7 @@ export class ApplicationStack extends Stack {
       ddSupervisor.agentCoreRuntime,
     );
     ddQuantAnalyst.agentCoreRuntime.grantInvoke(ddSupervisor.agentCoreRuntime);
-    ddReportDrafter.agentCoreRuntime.grantInvoke(
-      ddSupervisor.agentCoreRuntime,
-    );
+    ddReportDrafter.agentCoreRuntime.grantInvoke(ddSupervisor.agentCoreRuntime);
     ddQaAgent.agentCoreRuntime.grantInvoke(ddSupervisor.agentCoreRuntime);
 
     // Grant Bedrock model access to agents that use LLMs
@@ -1179,10 +1177,7 @@ export class ApplicationStack extends Stack {
     // Grant evidence-gatherer access to Bedrock Knowledge Bases
     ddEvidenceGatherer.agentCoreRuntime.role.addToPrincipalPolicy(
       new PolicyStatement({
-        actions: [
-          'bedrock:Retrieve',
-          'bedrock:RetrieveAndGenerate',
-        ],
+        actions: ['bedrock:Retrieve', 'bedrock:RetrieveAndGenerate'],
         resources: ['*'],
       }),
     );

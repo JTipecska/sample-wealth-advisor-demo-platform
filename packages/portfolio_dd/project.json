@@ -6,21 +6,52 @@
   "tags": [],
   "metadata": {
     "generator": "py#project",
-    "ports": [8086, 8087, 8088, 8089, 8090, 8091],
+    "ports": [8086, 8087, 8088, 8089, 8090, 8091, 8092],
     "components": [
       { "generator": "py#strands-agent", "name": "dd-supervisor",       "port": 8086 },
       { "generator": "py#strands-agent", "name": "evidence-gatherer",   "port": 8087 },
       { "generator": "py#strands-agent", "name": "framework-assessor",  "port": 8088 },
       { "generator": "py#strands-agent", "name": "quant-analyst",       "port": 8089 },
       { "generator": "py#strands-agent", "name": "report-drafter",      "port": 8090 },
-      { "generator": "py#strands-agent", "name": "qa-agent",            "port": 8091 }
+      { "generator": "py#strands-agent", "name": "qa-agent",            "port": 8091 },
+      { "generator": "py#fast-api", "name": "portfolio-dd-api",         "port": 8092 }
     ]
   },
   "targets": {
     "add": { "executor": "@nxlv/python:add", "options": {} },
     "build": {
-      "dependsOn": ["lint", "compile", "test"],
+      "dependsOn": ["lint", "compile", "test", "bundle", "docker"],
       "options": { "outputPath": "{workspaceRoot}/dist/packages/portfolio_dd" }
+    },
+    "bundle": {
+      "dependsOn": ["bundle-x86", "bundle-arm"]
+    },
+    "bundle-x86": {
+      "cache": true,
+      "executor": "nx:run-commands",
+      "outputs": ["{workspaceRoot}/dist/packages/portfolio_dd/bundle-x86"],
+      "options": {
+        "commands": [
+          "uv export --frozen --no-dev --no-editable --project packages/portfolio_dd --package wealth_management_portal.portfolio_dd -o dist/packages/portfolio_dd/bundle-x86/requirements.txt",
+          "uv pip install -n --no-deps --no-installer-metadata --no-compile-bytecode --python-platform x86_64-manylinux_2_28 --target dist/packages/portfolio_dd/bundle-x86 -r dist/packages/portfolio_dd/bundle-x86/requirements.txt"
+        ],
+        "parallel": false
+      },
+      "dependsOn": ["compile"]
+    },
+    "bundle-arm": {
+      "cache": true,
+      "executor": "nx:run-commands",
+      "outputs": ["{workspaceRoot}/dist/packages/portfolio_dd/bundle-arm"],
+      "options": {
+        "commands": [
+          "uv export --frozen --no-dev --no-editable --project packages/portfolio_dd --package wealth_management_portal.portfolio_dd -o dist/packages/portfolio_dd/bundle-arm/requirements.txt",
+          "uv pip install -n --no-deps --no-installer-metadata --no-compile-bytecode --python-platform aarch64-manylinux_2_28 --target dist/packages/portfolio_dd/bundle-arm -r dist/packages/portfolio_dd/bundle-arm/requirements.txt",
+          "find dist/packages/portfolio_dd/bundle-arm -name '*darwin*.so' -delete"
+        ],
+        "parallel": false
+      },
+      "dependsOn": ["compile"]
     },
     "compile": {
       "executor": "@nxlv/python:build",
@@ -62,6 +93,77 @@
       },
       "cache": true
     },
+    "dd-supervisor-docker": {
+      "cache": true,
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "docker build --platform linux/arm64 -t wealth-management-portal-dd-supervisor:latest packages/portfolio_dd/wealth_management_portal_portfolio_dd/supervisor_agent --build-context workspace=dist/packages/portfolio_dd"
+        ]
+      },
+      "dependsOn": ["bundle-arm"]
+    },
+    "evidence-gatherer-docker": {
+      "cache": true,
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "docker build --platform linux/arm64 -t wealth-management-portal-dd-evidence-gatherer:latest packages/portfolio_dd/wealth_management_portal_portfolio_dd/evidence_gatherer --build-context workspace=dist/packages/portfolio_dd"
+        ]
+      },
+      "dependsOn": ["bundle-arm"]
+    },
+    "framework-assessor-docker": {
+      "cache": true,
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "docker build --platform linux/arm64 -t wealth-management-portal-dd-framework-assessor:latest packages/portfolio_dd/wealth_management_portal_portfolio_dd/framework_assessor --build-context workspace=dist/packages/portfolio_dd"
+        ]
+      },
+      "dependsOn": ["bundle-arm"]
+    },
+    "quant-analyst-docker": {
+      "cache": true,
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "docker build --platform linux/arm64 -t wealth-management-portal-dd-quant-analyst:latest packages/portfolio_dd/wealth_management_portal_portfolio_dd/quant_analyst --build-context workspace=dist/packages/portfolio_dd"
+        ]
+      },
+      "dependsOn": ["bundle-arm"]
+    },
+    "report-drafter-docker": {
+      "cache": true,
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "docker build --platform linux/arm64 -t wealth-management-portal-dd-report-drafter:latest packages/portfolio_dd/wealth_management_portal_portfolio_dd/report_drafter --build-context workspace=dist/packages/portfolio_dd"
+        ]
+      },
+      "dependsOn": ["bundle-arm"]
+    },
+    "qa-agent-docker": {
+      "cache": true,
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "docker build --platform linux/arm64 -t wealth-management-portal-dd-qa-agent:latest packages/portfolio_dd/wealth_management_portal_portfolio_dd/qa_agent --build-context workspace=dist/packages/portfolio_dd"
+        ]
+      },
+      "dependsOn": ["bundle-arm"]
+    },
+    "docker": {
+      "dependsOn": ["dd-supervisor-docker", "evidence-gatherer-docker", "framework-assessor-docker", "quant-analyst-docker", "report-drafter-docker", "qa-agent-docker"]
+    },
+    "api-serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": ["uv run fastapi dev wealth_management_portal_portfolio_dd/api/main.py --port 8092"],
+        "cwd": "{projectRoot}"
+      },
+      "continuous": true
+    },
     "supervisor-serve": {
       "executor": "nx:run-commands",
       "options": {
@@ -74,14 +176,6 @@
       "executor": "nx:run-commands",
       "options": {
         "commands": ["uv run fastapi dev wealth_management_portal_portfolio_dd/evidence_gatherer/main.py --port 8087"],
-        "cwd": "{projectRoot}"
-      },
-      "continuous": true
-    },
-    "api-serve": {
-      "executor": "nx:run-commands",
-      "options": {
-        "commands": ["uv run fastapi dev wealth_management_portal_portfolio_dd/api/main.py --port 8092"],
         "cwd": "{projectRoot}"
       },
       "continuous": true

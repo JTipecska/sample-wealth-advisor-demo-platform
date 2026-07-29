@@ -59,11 +59,9 @@ export class PortfolioDdApi extends Construct {
 
     this.handler = props.handler;
 
-    const authorizer = new CognitoUserPoolsAuthorizer(
-      this,
-      'Authorizer',
-      { cognitoUserPools: [props.identity.userPool] },
-    );
+    const authorizer = new CognitoUserPoolsAuthorizer(this, 'Authorizer', {
+      cognitoUserPools: [props.identity.userPool],
+    });
 
     this.api = new LambdaRestApi(this, 'Api', {
       handler: this.handler,
@@ -96,7 +94,6 @@ export class PortfolioDdApi extends Construct {
         },
       });
     }
-
   }
 
   public restrictCorsTo(

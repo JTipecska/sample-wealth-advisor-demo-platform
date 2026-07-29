@@ -5037,11 +5037,13 @@ name = "wealth-management-portal-portfolio-dd"
 version = "1.0.0"
 source = { editable = "packages/portfolio_dd" }
 dependencies = [
+    { name = "aws-lambda-powertools", extra = ["tracer"] },
     { name = "bedrock-agentcore" },
     { name = "boto3" },
     { name = "fastapi" },
     { name = "httpx" },
     { name = "jinja2" },
+    { name = "mangum" },
     { name = "pydantic" },
     { name = "pyjwt", extra = ["crypto"] },
     { name = "python-dotenv" },
@@ -5062,11 +5064,13 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "aws-lambda-powertools", extras = ["tracer"], specifier = ">=3.24.0" },
     { name = "bedrock-agentcore", specifier = ">=0.1.7" },
     { name = "boto3", specifier = ">=1.42.44" },
     { name = "fastapi", specifier = "==0.128.5" },
     { name = "httpx", specifier = ">=0.28.0" },
     { name = "jinja2", specifier = ">=3.1.0" },
+    { name = "mangum", specifier = "==0.21.0" },
     { name = "pydantic", specifier = ">=2.12.5" },
     { name = "pyjwt", extras = ["crypto"], specifier = ">=2.8.0" },
     { name = "python-dotenv", specifier = ">=1.1.0" },

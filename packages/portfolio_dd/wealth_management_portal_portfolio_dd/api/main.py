@@ -1,36 +1,47 @@
-"""Portfolio Due Diligence REST API with SSE streaming."""
+"""Portfolio Due Diligence REST API — Lambda (DynamoDB + async invoke) or local (in-memory)."""
 
 from __future__ import annotations
 
 import asyncio
-import contextlib
+import json
 import logging
 import os
-from collections.abc import AsyncGenerator
 from datetime import datetime
 from uuid import uuid4
 
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+import boto3
+from fastapi import HTTPException
 from pydantic import BaseModel
 
 from ..common.a2a_client import get_agent_endpoint, invoke_agent
 from ..models import DDReport, DDSession, DDStatus
 from ..schemas import DDProgressEvent, DDRequest
 from ..seed_data import MANAGER_BY_PORTFOLIO, SAMPLE_PORTFOLIOS
+from .repository import DDRepository
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Portfolio DD API", version="1.0.0")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+# Use init.py's app in Lambda mode, standalone FastAPI for local dev
+_is_lambda = bool(os.environ.get("AWS_LAMBDA_FUNCTION_NAME"))
 
-# In-memory session store (DynamoDB in prod)
+if _is_lambda:
+    from .init import app  # noqa: I001
+    from .init import lambda_handler as _mangum_handler
+else:
+    from fastapi import FastAPI  # noqa: I001
+    from fastapi.middleware.cors import CORSMiddleware
+
+    app = FastAPI(title="Portfolio DD API", version="1.0.0")
+    app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+    _mangum_handler = None
+
+repo = DDRepository()
+
+# In-memory fallback for local dev (when DynamoDB not available)
 _sessions: dict[str, DDSession] = {}
 _reports: dict[str, DDReport] = {}
-_progress_queues: dict[str, asyncio.Queue] = {}
-_hitl_flags: dict[str, dict[str, dict]] = {}  # session_id → flag_id → flag
+_hitl_flags: dict[str, dict[str, dict]] = {}
 
 
 # ── Request/Response models ────────────────────────────────────────────────────
@@ -47,6 +58,7 @@ class StartReviewResponse(BaseModel):
     portfolio_id: str
     portfolio_name: str
     status: str
+    started_at: str
 
 
 class SessionStatusResponse(BaseModel):
@@ -62,68 +74,65 @@ class SessionStatusResponse(BaseModel):
 
 
 class HITLResolveRequest(BaseModel):
-    resolution: str  # "approved" | "rejected" | "escalated"
+    resolution: str
     reviewer_notes: str = ""
     reviewer: str = ""
 
 
-# ── Helpers ────────────────────────────────────────────────────────────────────
+# ── Pipeline runner (invoked async in Lambda, or as background task locally) ──
 
 
-def _emit(session_id: str, event: DDProgressEvent) -> None:
-    q = _progress_queues.get(session_id)
-    if q:
-        with contextlib.suppress(asyncio.QueueFull):
-            q.put_nowait(event)
+def _emit_event(session_id: str, event: DDProgressEvent) -> None:
+    if repo.is_available:
+        repo.append_event(session_id, event.model_dump(mode="json"))
 
 
-async def _run_pipeline(session: DDSession) -> None:
-    """Background task — drives the supervisor and emits SSE progress events."""
-    session_id = session.session_id
-
-    _emit(
+async def _run_pipeline(
+    session_id: str,
+    portfolio_id: str,
+    portfolio_name: str,
+    manager_name: str,
+    criteria_ids: list[str] | None = None,
+) -> None:
+    """Drive the supervisor agent and persist results."""
+    _emit_event(
         session_id,
         DDProgressEvent(
             session_id=session_id,
             event_type="pipeline_started",
-            message=f"Starting due diligence for {session.portfolio_name}",
+            message=f"Starting due diligence for {portfolio_name}",
         ),
     )
 
-    mgr_name = session.manager_name
-
     request = DDRequest(
         session_id=session_id,
-        portfolio_id=session.portfolio_id,
-        portfolio_name=session.portfolio_name,
-        manager_name=mgr_name,
-        criteria_ids=getattr(session, "criteria_ids", []),
+        portfolio_id=portfolio_id,
+        portfolio_name=portfolio_name,
+        manager_name=manager_name,
+        criteria_ids=criteria_ids or [],
     )
 
     try:
-        ep = get_agent_endpoint("supervisor")
+        ep = get_agent_endpoint("dd-supervisor")
         result = await invoke_agent(ep, request.model_dump_json())
-        # supervisor returns DDAgentResult; extract the nested report dict
         report_data = result.get("report", result) if isinstance(result, dict) else result
         report = DDReport.model_validate(report_data)
 
-        _reports[session_id] = report
-        session.status = DDStatus.COMPLETE
-        session.completed_at = datetime.utcnow()
-
-        # Build HITL flags if required
+        # Build HITL flags
+        flags = []
         if report.hitl_required:
-            flags: dict[str, dict] = {}
             for reason in report.hitl_reasons:
                 flag_id = f"flag_{uuid4().hex[:8]}"
-                flags[flag_id] = {
-                    "flag_id": flag_id,
-                    "reason": reason,
-                    "status": "pending",
-                    "resolved_at": None,
-                    "reviewer_notes": "",
-                }
-                _emit(
+                flags.append(
+                    {
+                        "flag_id": flag_id,
+                        "reason": reason,
+                        "status": "pending",
+                        "resolved_at": None,
+                        "reviewer_notes": "",
+                    }
+                )
+                _emit_event(
                     session_id,
                     DDProgressEvent(
                         session_id=session_id,
@@ -132,9 +141,30 @@ async def _run_pipeline(session: DDSession) -> None:
                         data={"flag_id": flag_id},
                     ),
                 )
-            _hitl_flags[session_id] = flags
 
-        _emit(
+        # Persist results
+        if repo.is_available:
+            repo.save_report(session_id, report.model_dump(mode="json"))
+            repo.update_session(
+                session_id,
+                {
+                    "status": "complete",
+                    "completed_at": datetime.utcnow().isoformat(),
+                    "overall_score": str(report.overall_score),
+                    "recommendation": report.recommendation,
+                    "hitl_required": report.hitl_required,
+                    "hitl_flags": flags,
+                },
+            )
+        else:
+            _reports[session_id] = report
+            session = _sessions.get(session_id)
+            if session:
+                session.status = DDStatus.COMPLETE
+                session.completed_at = datetime.utcnow()
+            _hitl_flags[session_id] = {f["flag_id"]: f for f in flags}
+
+        _emit_event(
             session_id,
             DDProgressEvent(
                 session_id=session_id,
@@ -151,20 +181,20 @@ async def _run_pipeline(session: DDSession) -> None:
 
     except Exception as exc:
         logger.error("Pipeline failed for session %s: %s", session_id, exc)
-        session.status = DDStatus.FAILED
-        _emit(
-            session_id,
-            DDProgressEvent(
-                session_id=session_id,
-                event_type="error",
-                message=str(exc),
-            ),
-        )
-    finally:
-        # Sentinel to close SSE stream
-        q = _progress_queues.get(session_id)
-        if q:
-            await q.put(None)
+        if repo.is_available:
+            repo.update_session(session_id, {"status": "failed"})
+            repo.append_event(
+                session_id,
+                {
+                    "session_id": session_id,
+                    "event_type": "error",
+                    "message": str(exc),
+                },
+            )
+        else:
+            session = _sessions.get(session_id)
+            if session:
+                session.status = DDStatus.FAILED
 
 
 # ── Endpoints ──────────────────────────────────────────────────────────────────
@@ -175,7 +205,7 @@ def ping():
     return {"status": "ok", "service": "portfolio-dd-api"}
 
 
-@app.post("/dd/sessions", response_model=StartReviewResponse)
+@app.post("/dd/sessions", status_code=202, response_model=StartReviewResponse)
 async def start_review(req: StartReviewRequest):
     """Kick off a new DD session for a portfolio."""
     pf_data = next((p for p in SAMPLE_PORTFOLIOS if p["portfolio_id"] == req.portfolio_id), None)
@@ -193,26 +223,70 @@ async def start_review(req: StartReviewRequest):
         initiated_by=req.initiated_by,
         status=DDStatus.IN_PROGRESS,
     )
-    _sessions[session.session_id] = session
-    _progress_queues[session.session_id] = asyncio.Queue(maxsize=200)
 
-    asyncio.create_task(_run_pipeline(session))
+    if repo.is_available:
+        repo.create_session(
+            {
+                "session_id": session.session_id,
+                "portfolio_id": session.portfolio_id,
+                "portfolio_name": session.portfolio_name,
+                "manager_name": mgr_name,
+                "status": session.status,
+                "started_at": session.started_at.isoformat(),
+            }
+        )
+        # Fire async Lambda self-invoke
+        boto3.client("lambda").invoke(
+            FunctionName=os.environ["AWS_LAMBDA_FUNCTION_NAME"],
+            InvocationType="Event",
+            Payload=json.dumps(
+                {
+                    "action": "run_pipeline",
+                    "session_id": session.session_id,
+                    "portfolio_id": session.portfolio_id,
+                    "portfolio_name": session.portfolio_name,
+                    "manager_name": mgr_name,
+                    "criteria_ids": req.criteria_ids,
+                }
+            ).encode(),
+        )
+    else:
+        _sessions[session.session_id] = session
+        asyncio.create_task(
+            _run_pipeline(session.session_id, session.portfolio_id, session.portfolio_name, mgr_name, req.criteria_ids)
+        )
 
     return StartReviewResponse(
         session_id=session.session_id,
         portfolio_id=session.portfolio_id,
         portfolio_name=session.portfolio_name,
         status=session.status,
+        started_at=session.started_at.isoformat(),
     )
 
 
 @app.get("/dd/sessions/{session_id}", response_model=SessionStatusResponse)
 async def get_session(session_id: str):
     """Return status and summary for a DD session."""
+    if repo.is_available:
+        data = repo.get_session(session_id)
+        if not data:
+            raise HTTPException(status_code=404, detail="Session not found")
+        return SessionStatusResponse(
+            session_id=data["session_id"],
+            portfolio_id=data["portfolio_id"],
+            portfolio_name=data["portfolio_name"],
+            status=data["status"],
+            started_at=data["started_at"],
+            completed_at=data.get("completed_at"),
+            overall_score=float(data["overall_score"]) if data.get("overall_score") else None,
+            recommendation=data.get("recommendation"),
+            hitl_required=data.get("hitl_required", False),
+        )
+
     session = _sessions.get(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
-
     report = _reports.get(session_id)
     return SessionStatusResponse(
         session_id=session.session_id,
@@ -227,59 +301,54 @@ async def get_session(session_id: str):
     )
 
 
-@app.get("/dd/sessions/{session_id}/stream")
-async def stream_progress(session_id: str):
-    """SSE stream for live pipeline progress."""
+@app.get("/dd/sessions/{session_id}/events")
+async def get_events(session_id: str):
+    """Return progress events for a DD session (polling replacement for SSE)."""
+    if repo.is_available:
+        data = repo.get_session(session_id)
+        if not data:
+            raise HTTPException(status_code=404, detail="Session not found")
+        return {"events": data.get("events", [])}
+
     if session_id not in _sessions:
         raise HTTPException(status_code=404, detail="Session not found")
-
-    queue = _progress_queues.get(session_id)
-    if queue is None:
-        raise HTTPException(status_code=410, detail="Stream no longer available")
-
-    async def event_generator() -> AsyncGenerator[str, None]:
-        while True:
-            try:
-                event = await asyncio.wait_for(queue.get(), timeout=30.0)
-            except TimeoutError:
-                yield ": keepalive\n\n"
-                continue
-
-            if event is None:  # sentinel — pipeline done
-                yield "event: done\ndata: {}\n\n"
-                break
-
-            yield f"event: {event.event_type}\ndata: {event.model_dump_json()}\n\n"
-
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "X-Accel-Buffering": "no",
-        },
-    )
+    return {"events": []}
 
 
 @app.get("/dd/sessions/{session_id}/report")
 async def get_report(session_id: str):
     """Return the completed DD report."""
+    if repo.is_available:
+        data = repo.get_session(session_id)
+        if not data:
+            raise HTTPException(status_code=404, detail="Session not found")
+        if data["status"] == "in_progress":
+            raise HTTPException(status_code=202, detail="Report not yet ready")
+        report = repo.get_report(session_id)
+        if not report:
+            raise HTTPException(status_code=404, detail="Report not found")
+        return report
+
     if session_id not in _sessions:
         raise HTTPException(status_code=404, detail="Session not found")
-
     report = _reports.get(session_id)
     if not report:
         session = _sessions[session_id]
         if session.status == DDStatus.IN_PROGRESS:
             raise HTTPException(status_code=202, detail="Report not yet ready")
         raise HTTPException(status_code=404, detail="Report not found")
-
     return report.model_dump()
 
 
 @app.get("/dd/sessions/{session_id}/hitl")
 async def list_hitl_flags(session_id: str):
     """List all HITL flags for a session."""
+    if repo.is_available:
+        data = repo.get_session(session_id)
+        if not data:
+            raise HTTPException(status_code=404, detail="Session not found")
+        return {"flags": data.get("hitl_flags", [])}
+
     if session_id not in _sessions:
         raise HTTPException(status_code=404, detail="Session not found")
     return {"flags": list(_hitl_flags.get(session_id, {}).values())}
@@ -288,23 +357,36 @@ async def list_hitl_flags(session_id: str):
 @app.post("/dd/sessions/{session_id}/hitl/{flag_id}/resolve")
 async def resolve_hitl_flag(session_id: str, flag_id: str, req: HITLResolveRequest):
     """Record a human reviewer's decision on a HITL flag."""
-    if session_id not in _sessions:
-        raise HTTPException(status_code=404, detail="Session not found")
-
-    flags = _hitl_flags.get(session_id)
-    if not flags or flag_id not in flags:
-        raise HTTPException(status_code=404, detail="Flag not found")
-
     valid_resolutions = {"approved", "rejected", "escalated"}
     if req.resolution not in valid_resolutions:
         raise HTTPException(status_code=400, detail=f"resolution must be one of {valid_resolutions}")
 
+    if repo.is_available:
+        data = repo.get_session(session_id)
+        if not data:
+            raise HTTPException(status_code=404, detail="Session not found")
+        repo.update_hitl_flag(
+            session_id,
+            flag_id,
+            {
+                "status": req.resolution,
+                "resolved_at": datetime.utcnow().isoformat(),
+                "reviewer_notes": req.reviewer_notes,
+                "reviewer": req.reviewer,
+            },
+        )
+        return {"flag_id": flag_id, "status": req.resolution, "message": "Resolution recorded"}
+
+    if session_id not in _sessions:
+        raise HTTPException(status_code=404, detail="Session not found")
+    flags = _hitl_flags.get(session_id)
+    if not flags or flag_id not in flags:
+        raise HTTPException(status_code=404, detail="Flag not found")
     flag = flags[flag_id]
     flag["status"] = req.resolution
     flag["resolved_at"] = datetime.utcnow().isoformat()
     flag["reviewer_notes"] = req.reviewer_notes
     flag["reviewer"] = req.reviewer
-
     return {"flag_id": flag_id, "status": req.resolution, "message": "Resolution recorded"}
 
 
@@ -312,6 +394,25 @@ async def resolve_hitl_flag(session_id: str, flag_id: str, req: HITLResolveReque
 async def list_portfolios():
     """Return the list of sample portfolios available for DD."""
     return {"portfolios": SAMPLE_PORTFOLIOS}
+
+
+# ── Lambda handler (dual-mode: API Gateway via Mangum, or async pipeline invoke) ──
+
+
+def handler(event, context):
+    """Lambda entry point — routes between API requests and async pipeline invocations."""
+    if isinstance(event, dict) and event.get("action") == "run_pipeline":
+        asyncio.run(
+            _run_pipeline(
+                session_id=event["session_id"],
+                portfolio_id=event["portfolio_id"],
+                portfolio_name=event["portfolio_name"],
+                manager_name=event.get("manager_name", ""),
+                criteria_ids=event.get("criteria_ids", []),
+            )
+        )
+        return {"status": "done"}
+    return _mangum_handler(event, context)
 
 
 if __name__ == "__main__":

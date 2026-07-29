@@ -1,14 +1,50 @@
 import { useRuntimeConfig } from '../../hooks/useRuntimeConfig';
 import { useAuth } from 'react-oidc-context';
 import { useCallback } from 'react';
-import type { DDReport, HITLFlag, Portfolio, ProgressEvent, Session } from './types';
+import type {
+  DDReport,
+  HITLFlag,
+  Portfolio,
+  ProgressEvent,
+  Session,
+} from './types';
 
 const SAMPLE_PORTFOLIOS: Portfolio[] = [
-  { portfolio_id: 'pf_amp001', name: 'AMP Growth Fund', asset_class: 'multi_asset', benchmark: 'CPI + 4.5% p.a.', aum_aud_m: 2840.0 },
-  { portfolio_id: 'pf_pendal001', name: 'Pendal Australian Equities', asset_class: 'australian_equities', benchmark: 'S&P/ASX 300 Accumulation Index', aum_aud_m: 1150.0 },
-  { portfolio_id: 'pf_macq001', name: 'Macquarie Income Fund', asset_class: 'fixed_income', benchmark: 'Bloomberg AusBond Bank Bill Index', aum_aud_m: 4200.0 },
-  { portfolio_id: 'pf_aef001', name: 'Australian Ethical Balanced', asset_class: 'multi_asset', benchmark: 'CPI + 3.5% p.a.', aum_aud_m: 870.0 },
-  { portfolio_id: 'pf_hyperion001', name: 'Hyperion Australian Growth Companies', asset_class: 'australian_equities', benchmark: 'S&P/ASX All Ordinaries Accumulation Index', aum_aud_m: 5100.0 },
+  {
+    portfolio_id: 'pf_amp001',
+    name: 'AMP Growth Fund',
+    asset_class: 'multi_asset',
+    benchmark: 'CPI + 4.5% p.a.',
+    aum_aud_m: 2840.0,
+  },
+  {
+    portfolio_id: 'pf_pendal001',
+    name: 'Pendal Australian Equities',
+    asset_class: 'australian_equities',
+    benchmark: 'S&P/ASX 300 Accumulation Index',
+    aum_aud_m: 1150.0,
+  },
+  {
+    portfolio_id: 'pf_macq001',
+    name: 'Macquarie Income Fund',
+    asset_class: 'fixed_income',
+    benchmark: 'Bloomberg AusBond Bank Bill Index',
+    aum_aud_m: 4200.0,
+  },
+  {
+    portfolio_id: 'pf_aef001',
+    name: 'Australian Ethical Balanced',
+    asset_class: 'multi_asset',
+    benchmark: 'CPI + 3.5% p.a.',
+    aum_aud_m: 870.0,
+  },
+  {
+    portfolio_id: 'pf_hyperion001',
+    name: 'Hyperion Australian Growth Companies',
+    asset_class: 'australian_equities',
+    benchmark: 'S&P/ASX All Ordinaries Accumulation Index',
+    aum_aud_m: 5100.0,
+  },
 ];
 
 export function useDDApi() {
