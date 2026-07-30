@@ -607,7 +607,7 @@ export function AdvisorDashboard() {
                                 className="text-gray-500 cursor-help"
                                 title="Calculated from article count, source diversity, recency, and keyword relevance."
                               >
-                                Score: {theme.score.toFixed(1)}/100
+                                Score: {(theme.score ?? 0).toFixed(1)}/100
                               </span>
                               <span className="text-gray-500">•</span>
                               <div className="relative">
@@ -661,8 +661,8 @@ export function AdvisorDashboard() {
                                   }}
                                   className="text-blue-600 hover:text-blue-800 hover:underline"
                                 >
-                                  {theme.articleCount} articles from{' '}
-                                  {theme.sources.join(', ')}
+                                  {theme.articleCount ?? 0} articles from{' '}
+                                  {(theme.sources ?? []).join(', ')}
                                 </button>
 
                                 {/* Popover */}
