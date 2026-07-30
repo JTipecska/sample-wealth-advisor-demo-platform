@@ -6,7 +6,7 @@ import asyncio
 import json
 import logging
 import os
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import boto3
@@ -118,14 +118,22 @@ async def _run_pipeline(
         report_data = result.get("report", result) if isinstance(result, dict) else result
         report = DDReport.model_validate(report_data)
 
-        # Build HITL flags
+        # Build HITL flags with criterion_id for frontend matching
+        from ..framework import DD_FRAMEWORK_V1
+
         flags = []
         if report.hitl_required:
             for reason in report.hitl_reasons:
                 flag_id = f"flag_{uuid4().hex[:8]}"
+                cid = ""
+                for c in DD_FRAMEWORK_V1:
+                    if c.criterion_id in reason or c.name in reason:
+                        cid = c.criterion_id
+                        break
                 flags.append(
                     {
                         "flag_id": flag_id,
+                        "criterion_id": cid,
                         "reason": reason,
                         "status": "pending",
                         "resolved_at": None,
@@ -149,7 +157,7 @@ async def _run_pipeline(
                 session_id,
                 {
                     "status": "complete",
-                    "completed_at": datetime.utcnow().isoformat(),
+                    "completed_at": datetime.now(UTC).isoformat(),
                     "overall_score": str(report.overall_score),
                     "recommendation": report.recommendation,
                     "hitl_required": report.hitl_required,
@@ -370,7 +378,7 @@ async def resolve_hitl_flag(session_id: str, flag_id: str, req: HITLResolveReque
             flag_id,
             {
                 "status": req.resolution,
-                "resolved_at": datetime.utcnow().isoformat(),
+                "resolved_at": datetime.now(UTC).isoformat(),
                 "reviewer_notes": req.reviewer_notes,
                 "reviewer": req.reviewer,
             },
@@ -384,7 +392,7 @@ async def resolve_hitl_flag(session_id: str, flag_id: str, req: HITLResolveReque
         raise HTTPException(status_code=404, detail="Flag not found")
     flag = flags[flag_id]
     flag["status"] = req.resolution
-    flag["resolved_at"] = datetime.utcnow().isoformat()
+    flag["resolved_at"] = datetime.now(UTC).isoformat()
     flag["reviewer_notes"] = req.reviewer_notes
     flag["reviewer"] = req.reviewer
     return {"flag_id": flag_id, "status": req.resolution, "message": "Resolution recorded"}
@@ -396,21 +404,91 @@ async def list_portfolios():
     return {"portfolios": SAMPLE_PORTFOLIOS}
 
 
+@app.get("/dd/sessions")
+async def list_sessions_endpoint():
+    """Return all DD sessions."""
+    if repo.is_available:
+        sessions = repo.list_sessions()
+        return {"sessions": sessions}
+    return {
+        "sessions": [
+            {
+                "session_id": s.session_id,
+                "portfolio_id": s.portfolio_id,
+                "portfolio_name": s.portfolio_name,
+                "status": s.status,
+                "started_at": s.started_at.isoformat(),
+                "completed_at": s.completed_at.isoformat() if s.completed_at else None,
+                "overall_score": None,
+                "recommendation": None,
+                "hitl_required": False,
+            }
+            for s in _sessions.values()
+        ]
+    }
+
+
+@app.get("/dd/portfolios/{portfolio_id}/documents")
+async def list_source_documents(portfolio_id: str):
+    """Return source documents available for a portfolio."""
+    from ..seed_data import SOURCE_DOCUMENTS
+
+    docs = SOURCE_DOCUMENTS.get(portfolio_id, [])
+    return {"documents": docs}
+
+
+@app.get("/dd/sessions/{session_id}/report/html")
+async def get_report_html(session_id: str):
+    """Return the DD report rendered as HTML."""
+    from fastapi.responses import HTMLResponse
+
+    from ..report_drafter.render import render_html
+
+    if repo.is_available:
+        data = repo.get_session(session_id)
+        if not data:
+            raise HTTPException(status_code=404, detail="Session not found")
+        report_data = repo.get_report(session_id)
+        if not report_data:
+            raise HTTPException(status_code=404, detail="Report not found")
+        html = render_html(
+            report_data,
+            portfolio_name=data.get("portfolio_name", ""),
+            manager_name=data.get("manager_name", ""),
+        )
+        return HTMLResponse(content=html)
+
+    raise HTTPException(status_code=404, detail="Report not available")
+
+
 # ── Lambda handler (dual-mode: API Gateway via Mangum, or async pipeline invoke) ──
 
 
 def handler(event, context):
     """Lambda entry point — routes between API requests and async pipeline invocations."""
     if isinstance(event, dict) and event.get("action") == "run_pipeline":
-        asyncio.run(
-            _run_pipeline(
-                session_id=event["session_id"],
-                portfolio_id=event["portfolio_id"],
-                portfolio_name=event["portfolio_name"],
-                manager_name=event.get("manager_name", ""),
-                criteria_ids=event.get("criteria_ids", []),
+        try:
+            asyncio.run(
+                _run_pipeline(
+                    session_id=event["session_id"],
+                    portfolio_id=event["portfolio_id"],
+                    portfolio_name=event["portfolio_name"],
+                    manager_name=event.get("manager_name", ""),
+                    criteria_ids=event.get("criteria_ids", []),
+                )
             )
-        )
+        except Exception as exc:
+            logger.error("Pipeline handler failed: %s", exc)
+            if repo.is_available:
+                repo.update_session(event["session_id"], {"status": "failed"})
+                repo.append_event(
+                    event["session_id"],
+                    {
+                        "session_id": event["session_id"],
+                        "event_type": "error",
+                        "message": str(exc),
+                    },
+                )
         return {"status": "done"}
     # Ensure event loop exists for Mangum (Python 3.12 doesn't auto-create one)
     try:

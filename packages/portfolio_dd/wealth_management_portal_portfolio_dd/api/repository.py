@@ -10,6 +10,17 @@ from typing import Any
 import boto3
 
 
+def _float_to_decimal(obj: Any) -> Any:
+    """Convert float values to Decimal for DynamoDB compatibility."""
+    if isinstance(obj, float):
+        return Decimal(str(obj))
+    if isinstance(obj, dict):
+        return {k: _float_to_decimal(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_float_to_decimal(i) for i in obj]
+    return obj
+
+
 def _get_table(env_var: str):
     table_name = os.environ.get(env_var)
     if not table_name:
@@ -55,7 +66,21 @@ class DDRepository:
             "hitl_flags": [],
         }
         item = {k: v for k, v in item.items() if v is not None}
-        self._sessions_table.put_item(Item=item)
+        self._sessions_table.put_item(Item=_float_to_decimal(item))
+
+    def list_sessions(self) -> list[dict]:
+        if not self._sessions_table:
+            return []
+        projection = (
+            "session_id, portfolio_id, portfolio_name, #s,"
+            " started_at, completed_at, overall_score, recommendation, hitl_required"
+        )
+        resp = self._sessions_table.scan(
+            ProjectionExpression=projection,
+            ExpressionAttributeNames={"#s": "status"},
+        )
+        items = resp.get("Items", [])
+        return [_decimal_to_float(item) for item in items]
 
     def get_session(self, session_id: str) -> dict | None:
         if not self._sessions_table:
@@ -81,7 +106,7 @@ class DDRepository:
             Key={"session_id": session_id},
             UpdateExpression="SET " + ", ".join(expr_parts),
             ExpressionAttributeNames=expr_names,
-            ExpressionAttributeValues=expr_values,
+            ExpressionAttributeValues=_float_to_decimal(expr_values),
         )
 
     def append_event(self, session_id: str, event: dict) -> None:
@@ -91,7 +116,7 @@ class DDRepository:
             Key={"session_id": session_id},
             UpdateExpression="SET #events = list_append(if_not_exists(#events, :empty), :evt)",
             ExpressionAttributeNames={"#events": "events"},
-            ExpressionAttributeValues={":evt": [event], ":empty": []},
+            ExpressionAttributeValues=_float_to_decimal({":evt": [event], ":empty": []}),
         )
 
     def get_events(self, session_id: str) -> list[dict]:

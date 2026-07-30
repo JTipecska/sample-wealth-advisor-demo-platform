@@ -23,7 +23,7 @@ If data is unavailable, set data_available=false and return nulls for all metric
 
 @tool
 def extract_performance_data(portfolio_id: str, window_years: int = 3) -> dict:
-    """Query Redshift fund_performance for NAV time-series over specified window.
+    """Query fund_performance for NAV time-series over specified window.
 
     Args:
         portfolio_id: Fund identifier.
@@ -32,51 +32,88 @@ def extract_performance_data(portfolio_id: str, window_years: int = 3) -> dict:
     Returns:
         Dict with keys: portfolio_id, returns (list of {date, nav, benchmark_nav}), metadata.
     """
-    workgroup = os.environ.get("REDSHIFT_WORKGROUP", "financial-advisor-wg")
-    database = os.environ.get("REDSHIFT_DATABASE", "dev")
+    import re
+    import time
 
+    use_athena = os.environ.get("DATA_ENGINE", "redshift").lower() == "athena"
+    region = os.environ.get("AWS_REGION", "ap-southeast-2")
+    profile = os.environ.get("AWS_PROFILE")
+    session = boto3.Session(profile_name=profile, region_name=region)
+
+    safe_portfolio_id = re.sub(r"[^\w\-.]", "", portfolio_id)
     sql = f"""
         SELECT
-            date_trunc('month', performance_date) AS month,
-            fund_return,
+            date_trunc('month', period_end_date) AS month,
+            time_weighted_return AS fund_return,
             benchmark_return
-        FROM fund_performance
-        WHERE portfolio_id = '{portfolio_id}'
-          AND performance_date >= DATEADD(year, -{window_years}, CURRENT_DATE)
+        FROM performance
+        WHERE portfolio_id = '{safe_portfolio_id}'
+          AND period_end_date >= date_add('year', -{int(window_years)}, current_date)
         ORDER BY month
     """
+
     try:
-        client = boto3.client("redshift-data", region_name=os.environ.get("AWS_REGION", "ap-southeast-2"))
-        resp = client.execute_statement(
-            WorkgroupName=workgroup,
-            Database=database,
-            Sql=sql,
-        )
-        # Poll for result (simplified — production would use async polling)
-        import time
+        if use_athena:
+            client = session.client("athena")
+            start_kwargs = {
+                "QueryString": sql,
+                "WorkGroup": os.environ.get("ATHENA_WORKGROUP", "primary"),
+                "QueryExecutionContext": {
+                    "Catalog": os.environ.get("ATHENA_CATALOG", "s3tablescatalog/financial-advisor-s3table"),
+                    "Database": os.environ.get("ATHENA_DATABASE", "financial_advisor"),
+                },
+            }
+            output_loc = os.environ.get("ATHENA_OUTPUT_LOCATION", "")
+            if output_loc:
+                start_kwargs["ResultConfiguration"] = {"OutputLocation": output_loc}
+            resp = client.start_query_execution(**start_kwargs)
+            query_id = resp["QueryExecutionId"]
+            for _ in range(30):
+                state = client.get_query_execution(QueryExecutionId=query_id)["QueryExecution"]["Status"]["State"]
+                if state == "SUCCEEDED":
+                    break
+                if state in ("FAILED", "CANCELLED"):
+                    return {"portfolio_id": portfolio_id, "returns": [], "metadata": {"error": state}}
+                time.sleep(2)
+            result = client.get_query_results(QueryExecutionId=query_id)
+            result_rows = result.get("ResultSet", {}).get("Rows", [])
+            rows = []
+            for record in result_rows[1:]:
+                cells = record["Data"]
+                rows.append(
+                    {
+                        "date": cells[0].get("VarCharValue", ""),
+                        "fund_return": float(cells[1].get("VarCharValue", 0) or 0),
+                        "benchmark_return": float(cells[2].get("VarCharValue", 0) or 0),
+                    }
+                )
+        else:
+            client = session.client("redshift-data")
+            workgroup = os.environ.get("REDSHIFT_WORKGROUP", "financial-advisor-wg")
+            database = os.environ.get("REDSHIFT_DATABASE", "dev")
+            resp = client.execute_statement(WorkgroupName=workgroup, Database=database, Sql=sql)
+            stmt_id = resp["Id"]
+            for _ in range(30):
+                status = client.describe_statement(Id=stmt_id)["Status"]
+                if status == "FINISHED":
+                    break
+                if status in ("FAILED", "ABORTED"):
+                    return {"portfolio_id": portfolio_id, "returns": [], "metadata": {"error": status}}
+                time.sleep(2)
+            result = client.get_statement_result(Id=stmt_id)
+            rows = []
+            for record in result.get("Records", []):
+                rows.append(
+                    {
+                        "date": record[0].get("stringValue", ""),
+                        "fund_return": float(record[1].get("doubleValue", 0) or 0),
+                        "benchmark_return": float(record[2].get("doubleValue", 0) or 0),
+                    }
+                )
 
-        stmt_id = resp["Id"]
-        for _ in range(30):
-            status = client.describe_statement(Id=stmt_id)["Status"]
-            if status == "FINISHED":
-                break
-            if status in ("FAILED", "ABORTED"):
-                return {"portfolio_id": portfolio_id, "returns": [], "metadata": {"error": status}}
-            time.sleep(2)
-
-        result = client.get_statement_result(Id=stmt_id)
-        rows = []
-        for record in result.get("Records", []):
-            rows.append(
-                {
-                    "date": record[0].get("stringValue", ""),
-                    "fund_return": float(record[1].get("doubleValue", 0) or 0),
-                    "benchmark_return": float(record[2].get("doubleValue", 0) or 0),
-                }
-            )
         return {"portfolio_id": portfolio_id, "returns": rows, "metadata": {"window_years": window_years}}
     except Exception as exc:
-        logger.warning("Redshift query failed for %s: %s", portfolio_id, exc)
+        logger.warning("Query failed for %s: %s", portfolio_id, exc)
         return {"portfolio_id": portfolio_id, "returns": [], "metadata": {"error": str(exc)}}
 
 

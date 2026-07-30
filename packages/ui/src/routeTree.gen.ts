@@ -9,7 +9,11 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as ReportsRouteImport } from './routes/reports'
+import { Route as MessagesRouteImport } from './routes/messages'
 import { Route as GraphSearchRouteImport } from './routes/graph-search'
+import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PortfolioDdIndexRouteImport } from './routes/portfolio-dd/index'
 import { Route as ClientsIndexRouteImport } from './routes/clients/index'
@@ -18,9 +22,29 @@ import { Route as ClientsClientIdRouteImport } from './routes/clients/$clientId'
 import { Route as PortfolioDdReviewIdReportRouteImport } from './routes/portfolio-dd/$reviewId/report'
 import { Route as ClientsClientIdReportRouteImport } from './routes/clients/$clientId/report'
 
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReportsRoute = ReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MessagesRoute = MessagesRouteImport.update({
+  id: '/messages',
+  path: '/messages',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const GraphSearchRoute = GraphSearchRouteImport.update({
   id: '/graph-search',
   path: '/graph-search',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CalendarRoute = CalendarRouteImport.update({
+  id: '/calendar',
+  path: '/calendar',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -62,7 +86,11 @@ const ClientsClientIdReportRoute = ClientsClientIdReportRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/calendar': typeof CalendarRoute
   '/graph-search': typeof GraphSearchRoute
+  '/messages': typeof MessagesRoute
+  '/reports': typeof ReportsRoute
+  '/settings': typeof SettingsRoute
   '/clients/$clientId': typeof ClientsClientIdRouteWithChildren
   '/portfolio-dd/$reviewId': typeof PortfolioDdReviewIdRouteWithChildren
   '/clients/': typeof ClientsIndexRoute
@@ -72,7 +100,11 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/calendar': typeof CalendarRoute
   '/graph-search': typeof GraphSearchRoute
+  '/messages': typeof MessagesRoute
+  '/reports': typeof ReportsRoute
+  '/settings': typeof SettingsRoute
   '/clients/$clientId': typeof ClientsClientIdRouteWithChildren
   '/portfolio-dd/$reviewId': typeof PortfolioDdReviewIdRouteWithChildren
   '/clients': typeof ClientsIndexRoute
@@ -83,7 +115,11 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/calendar': typeof CalendarRoute
   '/graph-search': typeof GraphSearchRoute
+  '/messages': typeof MessagesRoute
+  '/reports': typeof ReportsRoute
+  '/settings': typeof SettingsRoute
   '/clients/$clientId': typeof ClientsClientIdRouteWithChildren
   '/portfolio-dd/$reviewId': typeof PortfolioDdReviewIdRouteWithChildren
   '/clients/': typeof ClientsIndexRoute
@@ -95,7 +131,11 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/calendar'
     | '/graph-search'
+    | '/messages'
+    | '/reports'
+    | '/settings'
     | '/clients/$clientId'
     | '/portfolio-dd/$reviewId'
     | '/clients/'
@@ -105,7 +145,11 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/calendar'
     | '/graph-search'
+    | '/messages'
+    | '/reports'
+    | '/settings'
     | '/clients/$clientId'
     | '/portfolio-dd/$reviewId'
     | '/clients'
@@ -115,7 +159,11 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/calendar'
     | '/graph-search'
+    | '/messages'
+    | '/reports'
+    | '/settings'
     | '/clients/$clientId'
     | '/portfolio-dd/$reviewId'
     | '/clients/'
@@ -126,7 +174,11 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CalendarRoute: typeof CalendarRoute
   GraphSearchRoute: typeof GraphSearchRoute
+  MessagesRoute: typeof MessagesRoute
+  ReportsRoute: typeof ReportsRoute
+  SettingsRoute: typeof SettingsRoute
   ClientsClientIdRoute: typeof ClientsClientIdRouteWithChildren
   PortfolioDdReviewIdRoute: typeof PortfolioDdReviewIdRouteWithChildren
   ClientsIndexRoute: typeof ClientsIndexRoute
@@ -135,11 +187,39 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reports': {
+      id: '/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof ReportsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/messages': {
+      id: '/messages'
+      path: '/messages'
+      fullPath: '/messages'
+      preLoaderRoute: typeof MessagesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/graph-search': {
       id: '/graph-search'
       path: '/graph-search'
       fullPath: '/graph-search'
       preLoaderRoute: typeof GraphSearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/calendar': {
+      id: '/calendar'
+      path: '/calendar'
+      fullPath: '/calendar'
+      preLoaderRoute: typeof CalendarRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -219,7 +299,11 @@ const PortfolioDdReviewIdRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CalendarRoute: CalendarRoute,
   GraphSearchRoute: GraphSearchRoute,
+  MessagesRoute: MessagesRoute,
+  ReportsRoute: ReportsRoute,
+  SettingsRoute: SettingsRoute,
   ClientsClientIdRoute: ClientsClientIdRouteWithChildren,
   PortfolioDdReviewIdRoute: PortfolioDdReviewIdRouteWithChildren,
   ClientsIndexRoute: ClientsIndexRoute,

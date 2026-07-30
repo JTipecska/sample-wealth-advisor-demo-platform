@@ -103,10 +103,12 @@ def _invoke_bedrock(prompt: str) -> dict:
         contentType="application/json",
         accept="application/json",
     )
-    content = json.loads(resp["body"].read())["content"][0]["text"]
+    result = json.loads(resp["body"].read())
+    text_block = next((b for b in result["content"] if b.get("type") == "text"), None)
+    content = text_block["text"] if text_block else ""
     start = content.find("{")
     end = content.rfind("}") + 1
-    return json.loads(content[start:end])
+    return json.loads(content[start:end]) if start >= 0 and end > start else {"narrative": content}
 
 
 async def draft_report(task: DraftTask) -> ReportDraft:

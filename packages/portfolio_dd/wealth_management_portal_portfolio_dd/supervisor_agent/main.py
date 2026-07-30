@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import logging
-import os
 
+from bedrock_agentcore.runtime.models import PingStatus
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -26,7 +26,7 @@ app.add_middleware(
 
 @app.get("/ping")
 def ping():
-    return {"status": "ok", "agent": "dd-supervisor"}
+    return PingStatus.HEALTHY
 
 
 @app.post("/invocations")
@@ -49,4 +49,4 @@ async def invocations(body: DDRequest):
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 8086)))
+    uvicorn.run(app, host="0.0.0.0", port=8080)

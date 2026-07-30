@@ -12,6 +12,8 @@ import {
 } from 'aws-cdk-lib/aws-iam';
 import { CfnAppMonitor } from 'aws-cdk-lib/aws-rum';
 import { CfnSchedule } from 'aws-cdk-lib/aws-scheduler';
+// AwsCustomResource imports kept for future LF grants if needed
+// import { AwsCustomResource, AwsCustomResourcePolicy, PhysicalResourceId } from 'aws-cdk-lib/custom-resources';
 import { Function } from 'aws-cdk-lib/aws-lambda';
 import { Port } from 'aws-cdk-lib/aws-ec2';
 import { Construct } from 'constructs';
@@ -800,6 +802,46 @@ export class ApplicationStack extends Stack {
             resources: ['*'],
           }),
         );
+        // Athena query access (alternative to Redshift for S3 Tables)
+        integration.handler.role?.addToPrincipalPolicy(
+          new PolicyStatement({
+            actions: [
+              'athena:StartQueryExecution',
+              'athena:GetQueryExecution',
+              'athena:GetQueryResults',
+              'athena:StopQueryExecution',
+            ],
+            resources: [
+              `arn:aws:athena:${this.region}:${this.account}:workgroup/*`,
+            ],
+          }),
+        );
+        integration.handler.role?.addToPrincipalPolicy(
+          new PolicyStatement({
+            actions: ['s3tables:*'],
+            resources: [
+              `arn:aws:s3tables:${this.region}:${this.account}:bucket/*`,
+            ],
+          }),
+        );
+        integration.handler.addEnvironment('DATA_ENGINE', 'athena');
+        integration.handler.addEnvironment('ATHENA_WORKGROUP', 's3tables');
+        integration.handler.addEnvironment(
+          'ATHENA_CATALOG',
+          's3tablescatalog/financial-advisor-s3table',
+        );
+        integration.handler.addEnvironment(
+          'ATHENA_DATABASE',
+          'financial_advisor',
+        );
+        integration.handler.addEnvironment(
+          'ATHENA_OUTPUT_LOCATION',
+          `s3://${reportAgent.reportBucket.bucketName}/athena-results/`,
+        );
+        reportAgent.reportBucket.grantReadWrite(integration.handler);
+
+        // Lake Formation grants are applied via post-deploy script (buildspec / grant-lf-permissions)
+        // because the CDK execution role needs LF admin to grant on S3 Tables catalog.
       }
     });
 
@@ -1086,12 +1128,15 @@ export class ApplicationStack extends Stack {
     const ddReportsTable = new DDReportsTable(this, 'DDReportsTable');
 
     // DD Specialist Agents (AgentCore Runtimes)
+    const ddKnowledgeBaseId =
+      this.node.tryGetContext('ddKnowledgeBaseId') ?? '';
     const ddEvidenceGatherer = new DDEvidenceGatherer(
       this,
       'DDEvidenceGatherer',
       {
         environmentVariables: {
           AWS_REGION: this.region,
+          ...(ddKnowledgeBaseId ? { BEDROCK_KB_ID: ddKnowledgeBaseId } : {}),
         },
       },
     );
@@ -1102,6 +1147,7 @@ export class ApplicationStack extends Stack {
       {
         environmentVariables: {
           AWS_REGION: this.region,
+          FRAMEWORK_ASSESSOR_MODEL_ID: 'au.anthropic.claude-sonnet-5',
         },
       },
     );
@@ -1117,6 +1163,7 @@ export class ApplicationStack extends Stack {
     const ddReportDrafter = new DDReportDrafter(this, 'DDReportDrafter', {
       environmentVariables: {
         AWS_REGION: this.region,
+        REPORT_DRAFTER_MODEL_ID: 'au.anthropic.claude-sonnet-5',
       },
     });
 

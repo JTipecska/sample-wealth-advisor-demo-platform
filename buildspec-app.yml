@@ -17,6 +17,7 @@ env:
     REPORT_BEDROCK_MODEL_ID: /wealth-management-portal/report-bedrock-model-id
     TAVILY_API_KEY: /wealth-management-portal/tavily-api-key
     THEME_BEDROCK_MODEL_ID: /wealth-management-portal/theme-bedrock-model-id
+    DD_KNOWLEDGE_BASE_ID: /wealth-management-portal/dd-knowledge-base-id
     DEPLOY_BASTION: /wealth-management-portal/deploy-bastion
     TEST_USER_EMAIL: /wealth-management-portal/test-user-email
     TEST_USER_PASSWORD: /wealth-management-portal/test-user-password

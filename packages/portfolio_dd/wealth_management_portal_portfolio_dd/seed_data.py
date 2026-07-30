@@ -127,3 +127,101 @@ SAMPLE_PORTFOLIOS: list[dict] = [
 MANAGER_BY_PORTFOLIO: dict[str, dict] = {
     p["portfolio_id"]: next(m for m in SAMPLE_MANAGERS if m["manager_id"] == p["manager_id"]) for p in SAMPLE_PORTFOLIOS
 }
+
+# Source documents available for each portfolio (simulated KB sources)
+SOURCE_DOCUMENTS: dict[str, list[dict]] = {
+    "pf_amp001": [
+        {
+            "name": "AMP Growth Fund - Product Disclosure Statement 2026",
+            "key": "source_docs/pf_amp001_pds.pdf",
+            "type": "PDS",
+            "pages": 24,
+        },
+        {
+            "name": "AMP Growth Fund - Q1 2026 Quarterly Report",
+            "key": "source_docs/pf_amp001_quarterly.pdf",
+            "type": "Quarterly Report",
+            "pages": 8,
+        },
+        {
+            "name": "AMP Capital - Due Diligence Questionnaire Response",
+            "key": "source_docs/pf_amp001_ddq.pdf",
+            "type": "DDQ",
+            "pages": 16,
+        },
+    ],
+    "pf_pendal001": [
+        {
+            "name": "Pendal Australian Equities - PDS 2026",
+            "key": "source_docs/pf_pendal001_pds.pdf",
+            "type": "PDS",
+            "pages": 20,
+        },
+        {
+            "name": "Pendal Australian Equities - Q1 2026 Performance Report",
+            "key": "source_docs/pf_pendal001_quarterly.pdf",
+            "type": "Quarterly Report",
+            "pages": 6,
+        },
+        {
+            "name": "Pendal Group - Manager DDQ Response",
+            "key": "source_docs/pf_pendal001_ddq.pdf",
+            "type": "DDQ",
+            "pages": 14,
+        },
+    ],
+    "pf_macq001": [
+        {
+            "name": "Macquarie Income Fund - Product Disclosure Statement",
+            "key": "source_docs/pf_macq001_pds.pdf",
+            "type": "PDS",
+            "pages": 28,
+        },
+        {
+            "name": "Macquarie Income Fund - Q1 2026 Report",
+            "key": "source_docs/pf_macq001_quarterly.pdf",
+            "type": "Quarterly Report",
+            "pages": 10,
+        },
+    ],
+    "pf_aef001": [
+        {
+            "name": "Australian Ethical Balanced Fund - PDS 2026",
+            "key": "source_docs/pf_aef001_pds.pdf",
+            "type": "PDS",
+            "pages": 22,
+        },
+        {
+            "name": "Australian Ethical - ESG Impact Report 2025",
+            "key": "source_docs/pf_aef001_esg.pdf",
+            "type": "ESG Report",
+            "pages": 12,
+        },
+        {
+            "name": "Australian Ethical - DDQ Response",
+            "key": "source_docs/pf_aef001_ddq.pdf",
+            "type": "DDQ",
+            "pages": 18,
+        },
+    ],
+    "pf_hyperion001": [
+        {
+            "name": "Hyperion Australian Growth Companies - PDS",
+            "key": "source_docs/pf_hyperion001_pds.pdf",
+            "type": "PDS",
+            "pages": 18,
+        },
+        {
+            "name": "Hyperion - Q1 2026 Investment Letter",
+            "key": "source_docs/pf_hyperion001_quarterly.pdf",
+            "type": "Quarterly Report",
+            "pages": 4,
+        },
+        {
+            "name": "Hyperion Asset Management - DDQ Response",
+            "key": "source_docs/pf_hyperion001_ddq.pdf",
+            "type": "DDQ",
+            "pages": 20,
+        },
+    ],
+}

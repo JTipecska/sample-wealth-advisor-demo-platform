@@ -1,17 +1,17 @@
 <mxfile host="Electron">
   <diagram id="pdd-arch-01" name="Page-1">
-    <mxGraphModel dx="1600" dy="1100" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="900" math="0" shadow="0" adaptiveColors="auto">
+    <mxGraphModel dx="1341" dy="923" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="900" math="0" shadow="0" adaptiveColors="auto">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-        <mxCell id="user" parent="1" style="shape=mxgraph.aws4.user;fillColor=#232F3E;strokeColor=none;fontColor=#232F3E;verticalLabelPosition=bottom;verticalAlign=top;html=1;" value="Investment&lt;br&gt;Committee" vertex="1">
+        <mxCell id="user" parent="1" style="shape=mxgraph.aws4.user;fillColor=#232F3E;strokeColor=none;fontColor=#232F3E;verticalLabelPosition=bottom;verticalAlign=top;html=1;" value="Investment&lt;br&gt;Analyst" vertex="1">
           <mxGeometry height="75" width="60" x="60" y="340" as="geometry" />
         </mxCell>
         <mxCell id="api_gw" parent="1" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#E7157B;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.api_gateway;" value="API Gateway&lt;br&gt;POST /dd/sessions" vertex="1">
           <mxGeometry height="50" width="50" x="195" y="353" as="geometry" />
         </mxCell>
         <mxCell id="runtime" parent="1" style="swimlane;startSize=36;fillColor=#f0fdf4;strokeColor=#01A88D;fontStyle=1;fontSize=13;fontColor=#01A88D;html=1;rounded=0;" value="AgentCore Runtime" vertex="1">
-          <mxGeometry height="820" width="520" x="330" y="40" as="geometry" />
+          <mxGeometry height="830" width="520" x="330" y="40" as="geometry" />
         </mxCell>
         <mxCell id="supervisor" parent="runtime" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;fontStyle=1;" value="&lt;b&gt;DD Supervisor Agent&lt;/b&gt;&lt;br&gt;Strands SDK&lt;br&gt;Orchestrates pipeline &amp;amp; assembles&lt;br&gt;final DDReport with RAG ratings" vertex="1">
           <mxGeometry height="70" width="220" x="150" y="50" as="geometry" />
@@ -26,13 +26,13 @@
           <mxGeometry height="80" width="220" x="150" y="330" as="geometry" />
         </mxCell>
         <mxCell id="report_drafter" parent="runtime" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e6f9f4;strokeColor=#01A88D;fontSize=11;" value="&lt;b&gt;Report Drafter Agent&lt;/b&gt;&lt;br&gt;Strands SDK&lt;br&gt;Board-ready narrative: 4 sections&lt;br&gt;(Inv Process, Risk &amp;amp; Ops, Compliance&lt;br&gt;&amp;amp; ESG, Commercial)&lt;br&gt;Output: ReportDraft" vertex="1">
-          <mxGeometry height="95" width="220" x="150" y="470" as="geometry" />
+          <mxGeometry height="95" width="220" x="150" y="440" as="geometry" />
         </mxCell>
         <mxCell id="qa_agent" parent="runtime" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e6f9f4;strokeColor=#01A88D;fontSize=11;" value="&lt;b&gt;QA Agent&lt;/b&gt;&lt;br&gt;Strands SDK&lt;br&gt;Validates: 13 criteria covered,&lt;br&gt;score/narrative consistency,&lt;br&gt;evidence gaps caveated&lt;br&gt;Output: QAResult (approved/revise)" vertex="1">
-          <mxGeometry height="95" width="220" x="150" y="620" as="geometry" />
+          <mxGeometry height="95" width="220" x="150" y="590" as="geometry" />
         </mxCell>
         <mxCell id="output_node" parent="runtime" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;fontStyle=1;" value="&lt;b&gt;Final DDReport&lt;/b&gt;&lt;br&gt;13 CriterionAssessments (RAG)&lt;br&gt;4 CategorySummaries&lt;br&gt;Recommendation:&lt;br&gt;APPROVE | APPROVE_WITH_CONDITIONS | REJECT" vertex="1">
-          <mxGeometry height="80" width="240" x="140" y="770" as="geometry" />
+          <mxGeometry height="80" width="240" x="140" y="740" as="geometry" />
         </mxCell>
         <mxCell id="e_sup_ev" edge="1" parent="runtime" source="supervisor" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#01A88D;exitX=0.25;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="evidence_gatherer" value="asyncio.gather()">
           <mxGeometry relative="1" as="geometry" />
@@ -55,8 +55,8 @@
         <mxCell id="e_qa_revise" edge="1" parent="runtime" source="qa_agent" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#b85450;dashed=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;labelBackgroundColor=none;" target="report_drafter" value="revision (max 1)">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
-              <mxPoint x="110" y="668" />
-              <mxPoint x="110" y="518" />
+              <mxPoint x="110" y="638" />
+              <mxPoint x="110" y="488" />
             </Array>
           </mxGeometry>
         </mxCell>
@@ -91,9 +91,11 @@
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="e_ev_kb" edge="1" parent="1" source="evidence_gatherer" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;strokeColor=#01A88D;labelBackgroundColor=none;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" target="kb" value="kb_search">
-          <mxGeometry relative="1" as="geometry">
+          <mxGeometry relative="1" x="0.2444" y="-10" as="geometry">
+            <mxPoint as="offset" />
             <Array as="points">
-              <mxPoint x="920" y="260" />
+              <mxPoint x="590" y="330" />
+              <mxPoint x="920" y="330" />
               <mxPoint x="920" y="310" />
             </Array>
           </mxGeometry>
@@ -104,20 +106,22 @@
         <mxCell id="e_quant_redshift" edge="1" parent="1" source="quant_analyst" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;strokeColor=#8C4FFF;labelBackgroundColor=none;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" target="redshift" value="SQL queries">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
-              <mxPoint x="920" y="263" />
-              <mxPoint x="920" y="470" />
+              <mxPoint x="880" y="262" />
+              <mxPoint x="880" y="470" />
             </Array>
           </mxGeometry>
         </mxCell>
         <mxCell id="e_rt_bedrock" edge="1" parent="1" source="runtime" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;strokeColor=#01A88D;labelBackgroundColor=none;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;exitX=1;exitY=0.08;exitDx=0;exitDy=0;" target="bedrock" value="Converse API">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="e_rt_dynamo" edge="1" parent="1" source="runtime" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;strokeColor=#C925D1;labelBackgroundColor=none;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;exitX=1;exitY=0.7;exitDx=0;exitDy=0;endArrow=open;startArrow=open;" target="dynamo" value="session state">
-          <mxGeometry relative="1" as="geometry">
+        <mxCell id="e_rt_dynamo" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;strokeColor=#C925D1;labelBackgroundColor=none;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;endArrow=open;startArrow=open;" target="dynamo" value="session state">
+          <mxGeometry relative="1" y="20" as="geometry">
+            <mxPoint as="offset" />
             <Array as="points">
-              <mxPoint x="900" y="614" />
-              <mxPoint x="900" y="630" />
+              <mxPoint x="860" y="630" />
+              <mxPoint x="860" y="630" />
             </Array>
+            <mxPoint x="850" y="630" as="sourcePoint" />
           </mxGeometry>
         </mxCell>
         <mxCell id="e_rt_user_sse" edge="1" parent="1" source="runtime" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;endArrow=open;endFill=0;strokeColor=#999999;labelBackgroundColor=none;exitX=0;exitY=0.6;exitDx=0;exitDy=0;" target="user" value="SSE stream">
@@ -132,7 +136,7 @@
         <mxCell id="e_output_hitl" edge="1" parent="1" source="output_node" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;strokeColor=#b85450;labelBackgroundColor=none;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" target="hitl_box" value="if flagged">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
-              <mxPoint x="920" y="850" />
+              <mxPoint x="920" y="820" />
               <mxPoint x="920" y="780" />
             </Array>
           </mxGeometry>
@@ -141,10 +145,10 @@
           <mxGeometry height="30" width="450" x="330" y="5" as="geometry" />
         </mxCell>
         <mxCell id="subtitle" parent="1" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;fontColor=#666666;" value="Multi-agent pipeline on AWS Bedrock AgentCore | Australian Managed Funds ODD/IDD" vertex="1">
-          <mxGeometry height="20" width="500" x="60" y="875" as="geometry" />
+          <mxGeometry height="20" width="500" y="880" as="geometry" />
         </mxCell>
         <mxCell id="legend_parallel" parent="1" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#666666;" value="&lt;b style=&quot;color:#01A88D&quot;&gt;---&lt;/b&gt; Agent-to-service call&amp;nbsp;&amp;nbsp;&amp;nbsp;&lt;b style=&quot;color:#b85450&quot;&gt;---&lt;/b&gt; Revision / HITL path&amp;nbsp;&amp;nbsp;&amp;nbsp;&lt;b style=&quot;color:#01A88D&quot;&gt;&amp;mdash;&lt;/b&gt; Agent flow" vertex="1">
-          <mxGeometry height="20" width="500" x="550" y="875" as="geometry" />
+          <mxGeometry height="20" width="500" x="880" y="880" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>

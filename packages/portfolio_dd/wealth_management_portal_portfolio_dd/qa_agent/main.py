@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import logging
-import os
 
+from bedrock_agentcore.runtime.models import PingStatus
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -18,7 +18,7 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 
 @app.get("/ping")
 def ping():
-    return {"status": "ok", "agent": "qa"}
+    return PingStatus.HEALTHY
 
 
 @app.post("/invocations")
@@ -32,4 +32,4 @@ async def invocations(task: QATask) -> QAResult:
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 8091)))
+    uvicorn.run(app, host="0.0.0.0", port=8080)

@@ -25,9 +25,15 @@ export interface Session {
 
 export interface CriterionAssessment {
   criterion_id: string;
+  criterion_name?: string;
+  category?: string;
+  weight?: number;
+  confidence?: number;
   score?: number;
   rag_status: RAGStatus;
   summary: string;
+  rationale?: string;
+  evidence?: string[];
   hitl_required: boolean;
 }
 
@@ -73,6 +79,7 @@ export interface ProgressEvent {
 
 export interface HITLFlag {
   flag_id: string;
+  criterion_id?: string;
   reason: string;
   status: 'pending' | 'approved' | 'rejected' | 'escalated';
   resolved_at?: string;

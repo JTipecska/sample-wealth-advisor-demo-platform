@@ -93,7 +93,7 @@ async def _invoke_via_agentcore(agent_arn: str, payload_json: str) -> Any:
     )
     response = client.invoke_agent_runtime(
         agentRuntimeArn=agent_arn,
-        runtimeSessionId=f"dd-{uuid.uuid4().hex[:12]}",
+        runtimeSessionId=f"dd-{uuid.uuid4().hex}",
         payload=payload_json.encode("utf-8") if isinstance(payload_json, str) else payload_json,
     )
     response_body = response["response"].read().decode("utf-8")

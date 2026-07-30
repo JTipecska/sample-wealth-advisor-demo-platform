@@ -17,6 +17,7 @@ import { PageLayout, SearchBox } from './PageLayout';
 import { useApiClient } from '../hooks/useApiClient';
 import { useApi } from '../hooks/useApi';
 import type { Api } from '../generated/api/client.gen';
+import { UPCOMING_MEETINGS, ADVISOR_ALERTS } from '../data/seed';
 
 function ReportCell({ clientId, api }: { clientId: string; api: Api }) {
   const [state, setState] = useState<'idle' | 'loading' | 'error'>('idle');
@@ -57,21 +58,6 @@ interface MetricCard {
   value: string;
   change: string;
   icon: string;
-}
-
-interface Meeting {
-  id: string;
-  clientName: string;
-  time: string;
-  type: string;
-}
-
-interface Alert {
-  id: string;
-  type: 'compliance' | 'market';
-  title: string;
-  message: string;
-  severity: 'high' | 'medium' | 'low';
 }
 
 export function AdvisorDashboard() {
@@ -192,43 +178,8 @@ export function AdvisorDashboard() {
     },
   ];
 
-  const upcomingMeetings: Meeting[] = [
-    {
-      id: '1',
-      clientName: 'Michael Chen',
-      time: '10:00 AM',
-      type: 'Portfolio Review',
-    },
-    {
-      id: '2',
-      clientName: 'Sarah Johnson',
-      time: '2:00 PM',
-      type: 'Financial Planning',
-    },
-    {
-      id: '3',
-      clientName: 'David Lee',
-      time: '4:00 PM',
-      type: 'Investment Strategy',
-    },
-  ];
-
-  const alerts: Alert[] = [
-    {
-      id: '1',
-      type: 'compliance',
-      title: 'Compliance Alert',
-      message: 'Annual compliance review due for 5 clients',
-      severity: 'high',
-    },
-    {
-      id: '2',
-      type: 'market',
-      title: 'Market Alert',
-      message: 'S&P 500 volatility increased by 15%',
-      severity: 'medium',
-    },
-  ];
+  const upcomingMeetings = UPCOMING_MEETINGS.slice(0, 3);
+  const alerts = ADVISOR_ALERTS;
 
   return (
     <PageLayout

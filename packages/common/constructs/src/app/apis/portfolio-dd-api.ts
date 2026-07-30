@@ -45,7 +45,7 @@ export class PortfolioDdApi extends Construct {
           ),
         ),
       ),
-      timeout: Duration.seconds(60),
+      timeout: Duration.seconds(300),
       tracing: Tracing.ACTIVE,
       memorySize: 512,
       environment: {

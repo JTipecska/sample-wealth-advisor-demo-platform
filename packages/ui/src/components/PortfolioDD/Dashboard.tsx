@@ -27,6 +27,10 @@ export function PortfolioDDDashboard() {
       .listPortfolios()
       .then(setPortfolios)
       .catch(() => setPortfolios([]));
+    api
+      .listSessions()
+      .then(setSessions)
+      .catch(() => setSessions([]));
   }, []);
 
   const handleStartReview = useCallback(async () => {
@@ -47,6 +51,11 @@ export function PortfolioDDDashboard() {
       setStarting(false);
     }
   }, [selectedPortfolioId, api, navigate]);
+
+  const sortedSessions = [...sessions].sort(
+    (a, b) =>
+      new Date(b.started_at).getTime() - new Date(a.started_at).getTime(),
+  );
 
   const inProgressCount = sessions.filter(
     (s) => s.status === 'in_progress',
@@ -113,7 +122,7 @@ export function PortfolioDDDashboard() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {sessions.map((s) => (
+              {sortedSessions.map((s) => (
                 <tr
                   key={s.session_id}
                   className="hover:bg-gray-50 transition-colors"
@@ -131,7 +140,7 @@ export function PortfolioDDDashboard() {
                   <td className="px-6 py-4">
                     {s.overall_score != null ? (
                       <span className="font-semibold">
-                        {s.overall_score.toFixed(1)}
+                        {Number(s.overall_score).toFixed(1)}
                         <span className="text-gray-400">/10</span>
                       </span>
                     ) : (

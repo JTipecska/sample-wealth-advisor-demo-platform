@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Annotated
 from uuid import uuid4
@@ -93,7 +93,7 @@ class DDSession(BaseModel):
     framework_id: str = "dd_framework_v1"
     initiated_by: str
     status: DDStatus = DDStatus.PENDING
-    started_at: datetime = Field(default_factory=datetime.utcnow)
+    started_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     completed_at: datetime | None = None
     s3_report_key: str | None = None
 
@@ -102,10 +102,15 @@ class CriterionAssessment(BaseModel):
     assessment_id: str = Field(default_factory=lambda: f"ca_{uuid4().hex[:8]}")
     session_id: str
     criterion_id: str
+    criterion_name: str = ""
+    category: str = ""
+    weight: float = 0.0
+    confidence: float = 0.0
     rating: Rating = Rating.INSUFFICIENT_EVIDENCE
     rag_status: RAGStatus = RAGStatus.GREY
     score: float | None = None  # 0–10
     summary: str = ""
+    rationale: str = ""
     evidence: list[str] = Field(default_factory=list)
     hitl_required: bool = False
     hitl_reason: str = ""

@@ -98,7 +98,7 @@
       "executor": "nx:run-commands",
       "options": {
         "commands": [
-          "docker build --platform linux/arm64 -t wealth-management-portal-dd-supervisor:latest packages/portfolio_dd/wealth_management_portal_portfolio_dd/supervisor_agent --build-context workspace=dist/packages/portfolio_dd"
+          "docker build --no-cache --platform linux/arm64 -t wealth-management-portal-dd-supervisor:latest packages/portfolio_dd/wealth_management_portal_portfolio_dd/supervisor_agent --build-context workspace=dist/packages/portfolio_dd"
         ]
       },
       "dependsOn": ["bundle-arm"]
@@ -108,7 +108,7 @@
       "executor": "nx:run-commands",
       "options": {
         "commands": [
-          "docker build --platform linux/arm64 -t wealth-management-portal-dd-evidence-gatherer:latest packages/portfolio_dd/wealth_management_portal_portfolio_dd/evidence_gatherer --build-context workspace=dist/packages/portfolio_dd"
+          "docker build --no-cache --platform linux/arm64 -t wealth-management-portal-dd-evidence-gatherer:latest packages/portfolio_dd/wealth_management_portal_portfolio_dd/evidence_gatherer --build-context workspace=dist/packages/portfolio_dd"
         ]
       },
       "dependsOn": ["bundle-arm"]
@@ -118,7 +118,7 @@
       "executor": "nx:run-commands",
       "options": {
         "commands": [
-          "docker build --platform linux/arm64 -t wealth-management-portal-dd-framework-assessor:latest packages/portfolio_dd/wealth_management_portal_portfolio_dd/framework_assessor --build-context workspace=dist/packages/portfolio_dd"
+          "docker build --no-cache --platform linux/arm64 -t wealth-management-portal-dd-framework-assessor:latest packages/portfolio_dd/wealth_management_portal_portfolio_dd/framework_assessor --build-context workspace=dist/packages/portfolio_dd"
         ]
       },
       "dependsOn": ["bundle-arm"]
@@ -128,7 +128,7 @@
       "executor": "nx:run-commands",
       "options": {
         "commands": [
-          "docker build --platform linux/arm64 -t wealth-management-portal-dd-quant-analyst:latest packages/portfolio_dd/wealth_management_portal_portfolio_dd/quant_analyst --build-context workspace=dist/packages/portfolio_dd"
+          "docker build --no-cache --platform linux/arm64 -t wealth-management-portal-dd-quant-analyst:latest packages/portfolio_dd/wealth_management_portal_portfolio_dd/quant_analyst --build-context workspace=dist/packages/portfolio_dd"
         ]
       },
       "dependsOn": ["bundle-arm"]
@@ -138,7 +138,7 @@
       "executor": "nx:run-commands",
       "options": {
         "commands": [
-          "docker build --platform linux/arm64 -t wealth-management-portal-dd-report-drafter:latest packages/portfolio_dd/wealth_management_portal_portfolio_dd/report_drafter --build-context workspace=dist/packages/portfolio_dd"
+          "docker build --no-cache --platform linux/arm64 -t wealth-management-portal-dd-report-drafter:latest packages/portfolio_dd/wealth_management_portal_portfolio_dd/report_drafter --build-context workspace=dist/packages/portfolio_dd"
         ]
       },
       "dependsOn": ["bundle-arm"]
@@ -148,7 +148,7 @@
       "executor": "nx:run-commands",
       "options": {
         "commands": [
-          "docker build --platform linux/arm64 -t wealth-management-portal-dd-qa-agent:latest packages/portfolio_dd/wealth_management_portal_portfolio_dd/qa_agent --build-context workspace=dist/packages/portfolio_dd"
+          "docker build --no-cache --platform linux/arm64 -t wealth-management-portal-dd-qa-agent:latest packages/portfolio_dd/wealth_management_portal_portfolio_dd/qa_agent --build-context workspace=dist/packages/portfolio_dd"
         ]
       },
       "dependsOn": ["bundle-arm"]

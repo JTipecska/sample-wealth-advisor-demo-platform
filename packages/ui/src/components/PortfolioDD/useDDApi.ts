@@ -163,13 +163,54 @@ export function useDDApi() {
     [baseUrl, headers],
   );
 
+  const listSessions = useCallback(async (): Promise<Session[]> => {
+    try {
+      const r = await fetch(`${baseUrl}/dd/sessions`, { headers: headers() });
+      if (!r.ok) return [];
+      const d = await r.json();
+      return d.sessions ?? [];
+    } catch {
+      return [];
+    }
+  }, [baseUrl, headers]);
+
+  const getReportHtmlUrl = useCallback(
+    (sessionId: string): string =>
+      `${baseUrl}/dd/sessions/${sessionId}/report/html`,
+    [baseUrl],
+  );
+
+  const listSourceDocuments = useCallback(
+    async (
+      portfolioId: string,
+    ): Promise<
+      { name: string; key: string; type: string; pages?: number }[]
+    > => {
+      try {
+        const r = await fetch(
+          `${baseUrl}/dd/portfolios/${portfolioId}/documents`,
+          { headers: headers() },
+        );
+        if (!r.ok) return [];
+        const d = await r.json();
+        return d.documents ?? [];
+      } catch {
+        return [];
+      }
+    },
+    [baseUrl, headers],
+  );
+
   return {
     listPortfolios,
+    listSessions,
     startReview,
     getSession,
     getReport,
     listFlags,
     resolveFlag,
     getEvents,
+    getReportHtmlUrl,
+    listSourceDocuments,
   };
 }

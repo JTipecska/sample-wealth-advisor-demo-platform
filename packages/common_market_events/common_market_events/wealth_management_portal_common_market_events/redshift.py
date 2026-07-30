@@ -1,7 +1,8 @@
-"""Redshift connection and query utilities."""
+"""Data query utilities supporting Athena (S3 Tables) and Redshift Serverless."""
 
 import json
 import os
+import re
 import time
 from datetime import datetime
 from typing import Any
@@ -17,7 +18,7 @@ from wealth_management_portal_common_market_events.models import (
 
 
 class RedshiftClient:
-    """Client for interacting with Redshift Serverless."""
+    """Client for querying data via Athena or Redshift Serverless."""
 
     def __init__(
         self,
@@ -25,37 +26,77 @@ class RedshiftClient:
         database: str,
         region: str = "us-west-2",
     ):
-        """
-        Initialize Redshift client.
-
-        Args:
-            workgroup: Redshift Serverless workgroup name
-            database: Database name
-            region: AWS region
-        """
         self.workgroup = workgroup
         self.database = database
         self.region = region
+        self._use_athena = os.environ.get("DATA_ENGINE", "redshift").lower() == "athena"
 
         profile = os.environ.get("AWS_PROFILE")
         session = boto3.Session(profile_name=profile, region_name=region)
-        self.client = session.client("redshift-data")
+
+        if self._use_athena:
+            self.client = session.client("athena")
+            self._athena_workgroup = os.environ.get("ATHENA_WORKGROUP", "primary")
+            self._athena_catalog = os.environ.get("ATHENA_CATALOG", "s3tablescatalog/financial-advisor-s3table")
+            self._athena_database = os.environ.get("ATHENA_DATABASE", "financial_advisor")
+            self._athena_output = os.environ.get("ATHENA_OUTPUT_LOCATION", "")
+        else:
+            self.client = session.client("redshift-data")
+
+    def _resolve_params(self, sql: str, parameters: list[dict] | None) -> str:
+        """Replace named :param placeholders with literal values for Athena."""
+        if not parameters:
+            return sql
+        for param in parameters:
+            name = param["name"]
+            value = param["value"]
+            safe_value = re.sub(r"[^\w\s\-._:/+]", "", value)
+            if safe_value.isdigit():
+                sql = sql.replace(f":{name}", safe_value)
+            else:
+                sql = sql.replace(f":{name}", f"'{safe_value}'")
+        return sql
+
+    def _strip_public_schema(self, sql: str) -> str:
+        """Remove 'public.' prefix from table references for Athena (tables live in the catalog database)."""
+        return sql.replace("public.", "")
 
     def execute_statement(
         self, sql: str, wait: bool = True, max_attempts: int = 60, parameters: list[dict] | None = None
     ) -> str:
-        """
-        Execute SQL statement and optionally wait for completion.
+        """Execute SQL statement and optionally wait for completion."""
+        if self._use_athena:
+            resolved_sql = self._strip_public_schema(self._resolve_params(sql, parameters))
+            start_kwargs: dict = {
+                "QueryString": resolved_sql,
+                "WorkGroup": self._athena_workgroup,
+                "QueryExecutionContext": {
+                    "Catalog": self._athena_catalog,
+                    "Database": self._athena_database,
+                },
+            }
+            if self._athena_output:
+                start_kwargs["ResultConfiguration"] = {"OutputLocation": self._athena_output}
+            response = self.client.start_query_execution(**start_kwargs)
+            query_id = response["QueryExecutionId"]
 
-        Args:
-            sql: SQL statement to execute
-            wait: Whether to wait for completion
-            max_attempts: Maximum polling attempts
-            parameters: Optional list of named parameters [{"name": "x", "value": "y"}]
+            if wait:
+                for _ in range(max_attempts):
+                    status_resp = self.client.get_query_execution(QueryExecutionId=query_id)
+                    state = status_resp["QueryExecution"]["Status"]["State"]
+                    if state == "SUCCEEDED":
+                        break
+                    if state == "FAILED":
+                        reason = status_resp["QueryExecution"]["Status"].get("StateChangeReason", "Unknown")
+                        raise Exception(f"Athena query failed: {reason}")
+                    if state == "CANCELLED":
+                        raise Exception("Athena query was cancelled")
+                    time.sleep(1)
+                else:
+                    raise Exception("Athena query timed out")
 
-        Returns:
-            Statement ID
-        """
+            return query_id
+
         kwargs = {"WorkgroupName": self.workgroup, "Database": self.database, "Sql": sql}
         if parameters:
             kwargs["Parameters"] = parameters
@@ -85,33 +126,42 @@ class RedshiftClient:
         return statement_id
 
     def get_statement_result(self, statement_id: str) -> list[dict[str, Any]]:
-        """
-        Get results from a completed statement.
-
-        Args:
-            statement_id: Statement ID
-
-        Returns:
-            List of result rows as dictionaries
-        """
-        result = self.client.get_statement_result(Id=statement_id)
-
-        # Extract column names
-        columns = [col["name"] for col in result["ColumnMetadata"]]
-
-        # JSON fields that need parsing
+        """Get results from a completed statement."""
         json_fields = {"sources", "score_breakdown", "matched_tickers", "sources_stats"}
 
-        # Convert rows to dictionaries
+        if self._use_athena:
+            result = self.client.get_query_results(QueryExecutionId=statement_id)
+            result_rows = result.get("ResultSet", {}).get("Rows", [])
+            if not result_rows:
+                return []
+            columns = [col.get("VarCharValue", "") for col in result_rows[0]["Data"]]
+            rows = []
+            for record in result_rows[1:]:
+                row = {}
+                for col_name, cell in zip(columns, record["Data"], strict=True):
+                    value = cell.get("VarCharValue")
+                    if value is None:
+                        row[col_name] = None
+                    elif col_name in json_fields:
+                        try:
+                            row[col_name] = json.loads(value)
+                        except (json.JSONDecodeError, TypeError):
+                            row[col_name] = value
+                    else:
+                        row[col_name] = value
+                rows.append(row)
+            return rows
+
+        result = self.client.get_statement_result(Id=statement_id)
+        columns = [col["name"] for col in result["ColumnMetadata"]]
+
         rows = []
         for record in result.get("Records", []):
             row = {}
             for i, col_name in enumerate(columns):
-                # Handle different value types
                 value = record[i]
                 if "stringValue" in value:
                     string_val = value["stringValue"]
-                    # Parse JSON fields
                     if col_name in json_fields and string_val:
                         try:
                             row[col_name] = json.loads(string_val)
@@ -262,18 +312,23 @@ class RedshiftClient:
         rows = self.get_statement_result(statement_id)
         return [Article(**row) for row in rows]
 
+    def _latest_themes_sql(self) -> str:
+        """Return the inline SQL for latest_themes (view equivalent)."""
+        if self._use_athena:
+            return """(
+                SELECT t.* FROM themes t
+                WHERE t.generated_at >= (
+                    SELECT max(t2.generated_at) - interval '5' minute
+                    FROM themes t2
+                    WHERE t2.client_id = t.client_id
+                )
+            )"""
+        return "public.latest_themes"
+
     def get_general_themes(self, limit: int = 10, hours: int = None) -> list[Theme]:
-        """
-        Get general market themes from Redshift via latest_themes view.
-
-        Args:
-            limit: Maximum number of themes to return
-            hours: Optional - only return themes generated in last N hours
-
-        Returns:
-            List of Theme objects ordered by rank
-        """
-        sql = "SELECT * FROM public.latest_themes WHERE client_id = '__GENERAL__'"
+        """Get general market themes."""
+        latest = self._latest_themes_sql()
+        sql = f"SELECT * FROM {latest} WHERE client_id = '__GENERAL__'"
         parameters = []
 
         if hours:
@@ -299,19 +354,9 @@ class RedshiftClient:
     def get_portfolio_themes(
         self, client_id: str, limit: int = 10, hours: int = None, ticker: str = None
     ) -> list[Theme]:
-        """
-        Get portfolio-specific themes for a client via latest_themes view.
-
-        Args:
-            client_id: Client identifier
-            limit: Maximum number of themes to return
-            hours: Optional - only return themes generated in last N hours
-            ticker: Optional - filter themes for specific stock ticker
-
-        Returns:
-            List of Theme objects ordered by combined_score
-        """
-        sql = "SELECT * FROM public.latest_themes WHERE client_id = :client_id"
+        """Get portfolio-specific themes for a client."""
+        latest = self._latest_themes_sql()
+        sql = f"SELECT * FROM {latest} WHERE client_id = :client_id"
         parameters = [{"name": "client_id", "value": client_id}]
 
         if ticker:
@@ -332,33 +377,44 @@ class RedshiftClient:
         return [Theme(**row) for row in rows]
 
     def get_theme_articles(self, theme_id: str, client_id: str = "__GENERAL__") -> list[Article]:
-        """Get articles for a specific theme via theme_articles view."""
-        sql = """
-        SELECT content_hash, title, url, source, published_date
-        FROM public.theme_articles
-        WHERE theme_id = :theme_id
-        """
+        """Get articles for a specific theme."""
+        if self._use_athena:
+            sql = """
+            SELECT a.content_hash, a.title, a.url, a.source, CAST(a.published_date AS varchar) AS published_date
+            FROM theme_article_associations ta
+            JOIN articles a ON ta.article_hash = a.content_hash
+            WHERE ta.theme_id = :theme_id
+            """
+        else:
+            sql = """
+            SELECT content_hash, title, url, source, published_date
+            FROM public.theme_articles
+            WHERE theme_id = :theme_id
+            """
         parameters = [{"name": "theme_id", "value": theme_id}]
         statement_id = self.execute_statement(sql, parameters=parameters)
         rows = self.get_statement_result(statement_id)
         return [Article(**row) for row in rows]
 
     def get_client_portfolio_tickers(self, client_id: str) -> list[str]:
-        """
-        Get unique ticker symbols for a client's portfolio holdings.
-
-        Args:
-            client_id: Client identifier
-
-        Returns:
-            List of unique ticker symbols
-        """
-        sql = """
-        SELECT DISTINCT ticker
-        FROM public.client_portfolio_holdings
-        WHERE client_id = :client_id
-        ORDER BY ticker
-        """
+        """Get unique ticker symbols for a client's portfolio holdings."""
+        if self._use_athena:
+            sql = """
+            SELECT DISTINCT s.ticker
+            FROM holdings h
+            JOIN portfolios pf ON CAST(h.portfolio_id AS varchar) = CAST(pf.portfolio_id AS varchar)
+            JOIN accounts acc ON CAST(pf.account_id AS varchar) = CAST(acc.account_id AS varchar)
+            JOIN securities s ON CAST(h.security_id AS varchar) = CAST(s.security_id AS varchar)
+            WHERE CAST(acc.client_id AS varchar) = :client_id
+            ORDER BY s.ticker
+            """
+        else:
+            sql = """
+            SELECT DISTINCT ticker
+            FROM public.client_portfolio_holdings
+            WHERE client_id = :client_id
+            ORDER BY ticker
+            """
         parameters = [{"name": "client_id", "value": client_id}]
         statement_id = self.execute_statement(sql, parameters=parameters)
         rows = self.get_statement_result(statement_id)
