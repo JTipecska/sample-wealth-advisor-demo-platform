@@ -53,12 +53,16 @@ class AUMRepository(DataApiBaseRepository):
                     COALESCE(avg(lp.ending_value - lp.beginning_value), 0)
                         AS avg_portfolio_return_value,
                     COUNT(DISTINCT CASE
-                        WHEN t.transaction_date >= date_add('month', -1, current_date)
+                        WHEN t.transaction_date >= date_add(
+                            'month', -1,
+                            (SELECT max(transaction_date) FROM transactions))
                         THEN t_acc.client_id END)
                         AS active_clients_latest_month,
                     0 AS active_clients_change,
                     COALESCE(sum(CASE
-                        WHEN f.billing_date >= date_add('month', -1, current_date)
+                        WHEN f.billing_date >= date_add(
+                            'month', -1,
+                            (SELECT max(billing_date) FROM fees))
                         THEN f.fee_amount ELSE 0 END), 0)
                         AS total_fees_latest_month,
                     0 AS fees_change

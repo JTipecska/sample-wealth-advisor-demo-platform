@@ -18,14 +18,14 @@ class ThemeScoreBreakdown(BaseModel):
 
 
 class MarketTheme(BaseModel):
-    rank: int
+    rank: int | None = None
     theme_id: str
     title: str
     sentiment: str
-    score: float
-    article_count: int
-    sources: list[str]
-    summary: str
+    score: float | None = None
+    article_count: int | None = None
+    sources: list[str] = []
+    summary: str = ""
     score_breakdown: ThemeScoreBreakdown | None = None
 
 

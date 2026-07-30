@@ -61,19 +61,38 @@ class RedshiftClient:
         """Remove 'public.' prefix from table references for Athena (tables live in the catalog database)."""
         return sql.replace("public.", "")
 
+    def _qualify_tables(self, sql: str) -> str:
+        """Prefix bare table names with fully-qualified catalog.database path."""
+        if not self._use_athena:
+            return sql
+        table_names = [
+            "accounts", "advisors", "articles", "client_income_expense",
+            "client_investment_restrictions", "client_reports", "clients",
+            "compliance", "crawl_log", "documents", "fees", "goals",
+            "holdings", "interactions", "market_data", "performance",
+            "portfolio_config", "portfolios", "recommended_products",
+            "research", "securities", "theme_article_associations",
+            "themes", "transactions",
+        ]
+        prefix = f'"{self._athena_catalog}"."{self._athena_database}".'
+        for table in table_names:
+            sql = re.sub(
+                rf'(?<![.\w"])(\b{table}\b)(?!\s*\()',
+                prefix + f'"{table}"',
+                sql,
+            )
+        return sql
+
     def execute_statement(
         self, sql: str, wait: bool = True, max_attempts: int = 60, parameters: list[dict] | None = None
     ) -> str:
         """Execute SQL statement and optionally wait for completion."""
         if self._use_athena:
             resolved_sql = self._strip_public_schema(self._resolve_params(sql, parameters))
+            resolved_sql = self._qualify_tables(resolved_sql)
             start_kwargs: dict = {
                 "QueryString": resolved_sql,
                 "WorkGroup": self._athena_workgroup,
-                "QueryExecutionContext": {
-                    "Catalog": self._athena_catalog,
-                    "Database": self._athena_database,
-                },
             }
             if self._athena_output:
                 start_kwargs["ResultConfiguration"] = {"OutputLocation": self._athena_output}
@@ -331,7 +350,12 @@ class RedshiftClient:
         sql = f"SELECT * FROM {latest} WHERE client_id = '__GENERAL__'"
         parameters = []
 
-        if hours:
+        if hours and self._use_athena:
+            from datetime import datetime, timedelta
+
+            cutoff = (datetime.now() - timedelta(hours=hours)).strftime("%Y-%m-%d %H:%M:%S")
+            sql += f" AND generated_at >= TIMESTAMP '{cutoff}'"
+        elif hours:
             from datetime import datetime, timedelta
 
             cutoff = (datetime.now() - timedelta(hours=hours)).isoformat()
@@ -344,9 +368,15 @@ class RedshiftClient:
         rows = self.get_statement_result(statement_id)
         for row in rows:
             if isinstance(row.get("sources"), str):
-                row["sources"] = json.loads(row["sources"])
+                try:
+                    row["sources"] = json.loads(row["sources"])
+                except (json.JSONDecodeError, TypeError):
+                    row["sources"] = [s.strip().strip('"') for s in row["sources"].split(",") if s.strip()]
             if isinstance(row.get("score_breakdown"), str):
-                row["score_breakdown"] = json.loads(row["score_breakdown"])
+                try:
+                    row["score_breakdown"] = json.loads(row["score_breakdown"])
+                except (json.JSONDecodeError, TypeError):
+                    row["score_breakdown"] = None
             if isinstance(row.get("matched_tickers"), str):
                 row["matched_tickers"] = json.loads(row["matched_tickers"])
         return [Theme(**row) for row in rows]
