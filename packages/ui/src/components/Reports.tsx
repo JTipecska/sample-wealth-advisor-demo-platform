@@ -147,9 +147,7 @@ export function ReportsPage() {
     ])
       .then(([clientsRes, summaryRes]) => {
         setClients(clientsRes.clients || []);
-        setClientsWithReports(
-          new Set(summaryRes.clients_with_reports || []),
-        );
+        setClientsWithReports(new Set(summaryRes.clients_with_reports || []));
       })
       .catch(() => setClients([]))
       .finally(() => setLoading(false));

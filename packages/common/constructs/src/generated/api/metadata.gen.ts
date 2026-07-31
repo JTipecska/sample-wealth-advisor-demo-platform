@@ -54,13 +54,13 @@ export const OPERATION_DETAILS = {
     path: '/echo',
     method: 'GET',
   },
-  marketThemes: {
-    path: '/market-themes',
-    method: 'GET',
-  },
   generateReport: {
     path: '/clients/{client_id}/report/generate',
     method: 'POST',
+  },
+  marketThemes: {
+    path: '/market-themes',
+    method: 'GET',
   },
   portfolioSummary: {
     path: '/portfolio-summary',
