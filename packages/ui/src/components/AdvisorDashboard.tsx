@@ -16,42 +16,8 @@ import {
 import { PageLayout, SearchBox } from './PageLayout';
 import { useApiClient } from '../hooks/useApiClient';
 import { useApi } from '../hooks/useApi';
-import type { Api } from '../generated/api/client.gen';
+import { ReportCell } from './ReportCell';
 import { UPCOMING_MEETINGS, ADVISOR_ALERTS } from '../data/seed';
-
-function ReportCell({ clientId, api }: { clientId: string; api: Api }) {
-  const [state, setState] = useState<'idle' | 'loading' | 'error'>('idle');
-
-  const handleClick = () => {
-    setState('loading');
-    api
-      .clientReport({ clientId })
-      .then((r) => {
-        if (r.status === 'complete' && r.presignedUrl) {
-          window.open(r.presignedUrl, '_blank');
-        } else {
-          alert(`Report status: ${r.status}`);
-        }
-        setState('idle');
-      })
-      .catch(() => {
-        setState('error');
-      });
-  };
-
-  if (state === 'loading')
-    return <span className="text-xs text-gray-400">Loading…</span>;
-  if (state === 'error')
-    return <span className="text-xs text-red-400">Failed</span>;
-  return (
-    <button
-      onClick={handleClick}
-      className="text-xs text-blue-600 hover:text-blue-700"
-    >
-      📋 View Report
-    </button>
-  );
-}
 
 interface MetricCard {
   title: string;

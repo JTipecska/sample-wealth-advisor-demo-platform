@@ -1,119 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { PageLayout } from './PageLayout';
 import { useApiClient } from '../hooks/useApiClient';
-import { useRuntimeConfig } from '../hooks/useRuntimeConfig';
-import { useAuth } from 'react-oidc-context';
-import type { Api } from '../generated/api/client.gen';
-
-function ReportCell({
-  clientId,
-  hasReport,
-  api,
-  apiUrl,
-  token,
-}: {
-  clientId: string;
-  hasReport: boolean;
-  api: Api;
-  apiUrl: string;
-  token: string | undefined;
-}) {
-  const [state, setState] = useState<
-    'idle' | 'loading' | 'generating' | 'error'
-  >('idle');
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(
-    () => () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    },
-    [],
-  );
-
-  const handleViewOrGenerate = () => {
-    setState('loading');
-    api
-      .clientReport({ clientId })
-      .then((r) => {
-        if (r.status === 'complete' && r.presignedUrl) {
-          window.open(r.presignedUrl, '_blank');
-          setState('idle');
-        } else {
-          triggerGeneration();
-        }
-      })
-      .catch(() => {
-        triggerGeneration();
-      });
-  };
-
-  const triggerGeneration = () => {
-    setState('generating');
-    fetch(`${apiUrl.replace(/\/$/, '')}/clients/${clientId}/report/generate`, {
-      method: 'POST',
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    })
-      .then((r) => r.json())
-      .then((result) => {
-        if (result.presigned_url) {
-          window.open(result.presigned_url, '_blank');
-          setState('idle');
-        } else {
-          pollForReport();
-        }
-      })
-      .catch(() => setState('error'));
-  };
-
-  const pollForReport = () => {
-    let attempts = 0;
-    pollRef.current = setInterval(() => {
-      attempts++;
-      if (attempts > 30) {
-        if (pollRef.current) clearInterval(pollRef.current);
-        setState('error');
-        return;
-      }
-      api
-        .clientReport({ clientId })
-        .then((r) => {
-          if (r.presignedUrl) {
-            if (pollRef.current) clearInterval(pollRef.current);
-            window.open(r.presignedUrl, '_blank');
-            setState('idle');
-          }
-        })
-        .catch(() => undefined);
-    }, 3000);
-  };
-
-  if (state === 'loading')
-    return <span className="text-xs text-gray-400">Checking...</span>;
-  if (state === 'generating')
-    return (
-      <span className="text-xs text-amber-600 animate-pulse">
-        Generating...
-      </span>
-    );
-  if (state === 'error')
-    return (
-      <button
-        onClick={handleViewOrGenerate}
-        className="text-xs text-red-500 hover:text-red-700 font-medium"
-      >
-        Retry
-      </button>
-    );
-  return (
-    <button
-      onClick={handleViewOrGenerate}
-      className={`text-xs font-medium ${hasReport ? 'text-blue-600 hover:text-blue-700' : 'text-amber-600 hover:text-amber-700'}`}
-    >
-      {hasReport ? 'View Report' : 'Generate Report'}
-    </button>
-  );
-}
+import { ReportCell } from './ReportCell';
 
 interface Client {
   clientId: string;
@@ -127,16 +16,11 @@ interface Client {
 export function ReportsPage() {
   const navigate = useNavigate();
   const api = useApiClient();
-  const runtimeConfig = useRuntimeConfig();
-  const auth = useAuth();
   const [clients, setClients] = useState<Client[]>([]);
   const [clientsWithReports, setClientsWithReports] = useState<Set<string>>(
     new Set(),
   );
   const [loading, setLoading] = useState(true);
-
-  const apiUrl = runtimeConfig?.apis?.Api ?? '';
-  const token = auth.user?.id_token;
 
   useEffect(() => {
     Promise.all([api.clients({ limit: 100 }), api.reportsSummary()])
@@ -243,8 +127,6 @@ export function ReportsPage() {
                       clientId={c.clientId}
                       hasReport={clientsWithReports.has(c.clientId)}
                       api={api}
-                      apiUrl={apiUrl}
-                      token={token}
                     />
                   </td>
                   <td className="px-6 py-4 text-gray-500 text-xs max-w-[200px] truncate">
