@@ -50,7 +50,7 @@ function ReportCell({
 
   const triggerGeneration = () => {
     setState('generating');
-    fetch(`${apiUrl}clients/${clientId}/report/generate`, {
+    fetch(`${apiUrl.replace(/\/$/, '')}/clients/${clientId}/report/generate`, {
       method: 'POST',
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     })
@@ -139,19 +139,14 @@ export function ReportsPage() {
   const token = auth.user?.id_token;
 
   useEffect(() => {
-    Promise.all([
-      api.clients({ limit: 100 }),
-      fetch(`${apiUrl}reports/summary`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      }).then((r) => (r.ok ? r.json() : { clients_with_reports: [] })),
-    ])
+    Promise.all([api.clients({ limit: 100 }), api.reportsSummary()])
       .then(([clientsRes, summaryRes]) => {
         setClients(clientsRes.clients || []);
-        setClientsWithReports(new Set(summaryRes.clients_with_reports || []));
+        setClientsWithReports(new Set(summaryRes.clientsWithReports || []));
       })
       .catch(() => setClients([]))
       .finally(() => setLoading(false));
-  }, [api, apiUrl, token]);
+  }, [api]);
 
   const totalClients = clients.length;
   const reportsAvailable = clientsWithReports.size;
