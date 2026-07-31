@@ -119,6 +119,4 @@ def get_portfolio_summary() -> PortfolioSummaryResponse:
 
     except Exception:
         logger.exception("Error fetching portfolio summary")
-        return PortfolioSummaryResponse(
-            total_value=0, top_holdings=[], sector_allocation=[], asset_allocation=[]
-        )
+        return PortfolioSummaryResponse(total_value=0, top_holdings=[], sector_allocation=[], asset_allocation=[])
