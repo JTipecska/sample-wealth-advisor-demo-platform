@@ -54,17 +54,23 @@ def _get_report_athena(client_id: str) -> ReportStatusResponse:
     report = results[0]
     presigned_url = None
 
-    if report.get("status") == "complete" and report.get("s3_path"):
+    if report.get("status") == "complete" and report.get("s3_path") and REPORT_S3_BUCKET:
         try:
             s3_client = boto3.client("s3")
+            s3_client.head_object(Bucket=REPORT_S3_BUCKET, Key=report["s3_path"])
             presigned_url = s3_client.generate_presigned_url(
                 "get_object",
                 Params={"Bucket": REPORT_S3_BUCKET, "Key": report["s3_path"]},
                 ExpiresIn=3600,
             )
+        except s3_client.exceptions.NoSuchKey:
+            logger.info("Report file not found in S3", s3_path=report["s3_path"])
         except Exception as e:
-            logger.error("Failed to generate presigned URL", error=str(e))
-            raise HTTPException(status_code=500, detail="Failed to generate download URL") from e
+            if "404" in str(e) or "Not Found" in str(e):
+                logger.info("Report file not found in S3", s3_path=report["s3_path"])
+            else:
+                logger.error("Failed to generate presigned URL", error=str(e))
+                raise HTTPException(status_code=500, detail="Failed to generate download URL") from e
 
     return ReportStatusResponse(
         report_id=report.get("report_id"),
