@@ -87,7 +87,10 @@ def _invoke_bedrock(prompt: str) -> dict:
         contentType="application/json",
         accept="application/json",
     )
-    content = json.loads(resp["body"].read())["content"][0]["text"]
+    response_body = json.loads(resp["body"].read())
+    content_blocks = response_body["content"]
+    text_block = next((b for b in content_blocks if b.get("type") == "text"), content_blocks[0])
+    content = text_block["text"]
     # Extract JSON block from response
     start = content.find("{")
     end = content.rfind("}") + 1
