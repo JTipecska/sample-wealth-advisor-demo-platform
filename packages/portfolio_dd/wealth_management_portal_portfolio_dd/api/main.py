@@ -437,6 +437,28 @@ async def list_source_documents(portfolio_id: str):
     return {"documents": docs}
 
 
+@app.get("/dd/portfolios/{portfolio_id}/documents/{doc_key:path}/url")
+async def get_document_url(portfolio_id: str, doc_key: str):
+    """Generate a presigned S3 URL for a source document."""
+    from ..seed_data import SOURCE_DOCUMENTS
+
+    docs = SOURCE_DOCUMENTS.get(portfolio_id, [])
+    if not any(d["key"] == doc_key for d in docs):
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    bucket = os.environ.get("DD_SOURCE_DOCS_BUCKET")
+    if not bucket:
+        raise HTTPException(status_code=500, detail="Source docs bucket not configured")
+
+    s3_client = boto3.client("s3")
+    url = s3_client.generate_presigned_url(
+        "get_object",
+        Params={"Bucket": bucket, "Key": doc_key},
+        ExpiresIn=3600,
+    )
+    return {"url": url}
+
+
 @app.get("/dd/sessions/{session_id}/report/html")
 async def get_report_html(session_id: str):
     """Return the DD report rendered as HTML."""

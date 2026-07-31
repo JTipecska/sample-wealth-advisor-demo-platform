@@ -201,6 +201,23 @@ export function useDDApi() {
     [baseUrl, headers],
   );
 
+  const getDocumentUrl = useCallback(
+    async (portfolioId: string, docKey: string): Promise<string | null> => {
+      try {
+        const r = await fetch(
+          `${baseUrl}/dd/portfolios/${portfolioId}/documents/${encodeURIComponent(docKey)}/url`,
+          { headers: headers() },
+        );
+        if (!r.ok) return null;
+        const d = await r.json();
+        return d.url ?? null;
+      } catch {
+        return null;
+      }
+    },
+    [baseUrl, headers],
+  );
+
   return {
     listPortfolios,
     listSessions,
@@ -212,5 +229,6 @@ export function useDDApi() {
     getEvents,
     getReportHtmlUrl,
     listSourceDocuments,
+    getDocumentUrl,
   };
 }

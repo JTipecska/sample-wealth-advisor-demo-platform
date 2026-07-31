@@ -52,6 +52,7 @@ export function ReviewDetail() {
   const [sourceDocs, setSourceDocs] = useState<SourceDoc[]>([]);
   const [resolvingId, setResolvingId] = useState<string | null>(null);
   const [resolveNotes, setResolveNotes] = useState('');
+  const [loadingDocKey, setLoadingDocKey] = useState<string | null>(null);
   const feedRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -629,9 +630,26 @@ export function ReviewDetail() {
                         </p>
                       </div>
                     </div>
-                    <span className="text-xs text-gray-400 italic">
-                      Source document
-                    </span>
+                    <button
+                      className="text-xs text-blue-600 hover:text-blue-800 hover:underline font-medium disabled:opacity-50"
+                      disabled={loadingDocKey === doc.key}
+                      onClick={async () => {
+                        if (!session?.portfolio_id) return;
+                        setLoadingDocKey(doc.key);
+                        const url = await api.getDocumentUrl(
+                          session.portfolio_id,
+                          doc.key,
+                        );
+                        setLoadingDocKey(null);
+                        if (url) {
+                          window.open(url, '_blank');
+                        }
+                      }}
+                    >
+                      {loadingDocKey === doc.key
+                        ? 'Opening...'
+                        : 'Source document ↗'}
+                    </button>
                   </div>
                 ))}
               </div>

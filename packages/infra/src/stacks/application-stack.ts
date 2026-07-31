@@ -1,4 +1,16 @@
-import { Duration, Lazy, Stack, StackProps } from 'aws-cdk-lib';
+import {
+  CfnOutput,
+  Duration,
+  Lazy,
+  RemovalPolicy,
+  Stack,
+  StackProps,
+} from 'aws-cdk-lib';
+import {
+  BlockPublicAccess,
+  Bucket,
+  BucketEncryption,
+} from 'aws-cdk-lib/aws-s3';
 import {
   Memory,
   MemoryStrategy,
@@ -1281,6 +1293,25 @@ export class ApplicationStack extends Stack {
       'DD_SUPERVISOR_ARN',
       ddSupervisor.agentCoreRuntime.agentRuntimeArn,
     );
+
+    // S3 bucket for DD source documents (PDFs analyzed by evidence gatherer)
+    const ddSourceDocsBucket = new Bucket(this, 'DDSourceDocsBucket', {
+      blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
+      encryption: BucketEncryption.S3_MANAGED,
+      versioned: true,
+      enforceSSL: true,
+      removalPolicy: RemovalPolicy.RETAIN,
+    });
+    ddSourceDocsBucket.grantRead(portfolioDdHandler);
+    ddSourceDocsBucket.grantRead(ddEvidenceGatherer.agentCoreRuntime.role);
+    portfolioDdHandler.addEnvironment(
+      'DD_SOURCE_DOCS_BUCKET',
+      ddSourceDocsBucket.bucketName,
+    );
+
+    new CfnOutput(this, 'DDSourceDocsBucketName', {
+      value: ddSourceDocsBucket.bucketName,
+    });
 
     const portfolioDdApi = new PortfolioDdApi(this, 'PortfolioDdApi', {
       identity,
