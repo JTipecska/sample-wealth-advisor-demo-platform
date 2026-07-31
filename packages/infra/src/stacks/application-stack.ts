@@ -906,6 +906,7 @@ export class ApplicationStack extends Stack {
 
     getClientList.addEnvironment('REDSHIFT_WORKGROUP', redshiftWorkgroup);
     getClientList.addEnvironment('REDSHIFT_DATABASE', redshiftDatabase);
+    getClientList.addEnvironment('ATHENA_WORKGROUP', 's3tables');
     getClientList.addEnvironment('POWERTOOLS_SERVICE_NAME', 'scheduler-tools');
     getClientList.addEnvironment('LOG_LEVEL', 'INFO');
 
@@ -928,6 +929,40 @@ export class ApplicationStack extends Stack {
           'redshift-data:GetStatementResult',
         ],
         resources: ['*'],
+      }),
+    );
+    getClientList.role?.addToPrincipalPolicy(
+      new PolicyStatement({
+        actions: [
+          'athena:StartQueryExecution',
+          'athena:GetQueryExecution',
+          'athena:GetQueryResults',
+          'athena:StopQueryExecution',
+        ],
+        resources: [
+          `arn:aws:athena:${this.region}:${this.account}:workgroup/*`,
+        ],
+      }),
+    );
+    getClientList.role?.addToPrincipalPolicy(
+      new PolicyStatement({
+        actions: [
+          's3:GetObject',
+          's3:PutObject',
+          's3:ListBucket',
+          's3:GetBucketLocation',
+        ],
+        resources: ['*'],
+      }),
+    );
+    getClientList.role?.addToPrincipalPolicy(
+      new PolicyStatement({
+        actions: [
+          's3tables:*',
+        ],
+        resources: [
+          `arn:aws:s3tables:${this.region}:${this.account}:bucket/*`,
+        ],
       }),
     );
     getClientList.role?.addToPrincipalPolicy(
@@ -983,11 +1018,12 @@ export class ApplicationStack extends Stack {
       'theme-scheduler-tools',
     );
     generateGeneralThemes.addEnvironment('LOG_LEVEL', 'INFO');
+    generateGeneralThemes.addEnvironment('ATHENA_WORKGROUP', 's3tables');
 
     // Grant Lambda permission to invoke Web Crawler MCP
     webCrawlerMcp.agentCoreRuntime.grantInvoke(generateGeneralThemes);
 
-    // Redshift, Lake Formation, and Bedrock permissions for theme generation
+    // Redshift, Athena, Lake Formation, and Bedrock permissions for theme generation
     generateGeneralThemes.role?.addToPrincipalPolicy(
       new PolicyStatement({
         actions: [
@@ -1007,6 +1043,31 @@ export class ApplicationStack extends Stack {
           'redshift-data:GetStatementResult',
         ],
         resources: ['*'],
+      }),
+    );
+    generateGeneralThemes.role?.addToPrincipalPolicy(
+      new PolicyStatement({
+        actions: [
+          'athena:StartQueryExecution',
+          'athena:GetQueryExecution',
+          'athena:GetQueryResults',
+          'athena:StopQueryExecution',
+        ],
+        resources: [
+          `arn:aws:athena:${this.region}:${this.account}:workgroup/*`,
+        ],
+      }),
+    );
+    generateGeneralThemes.role?.addToPrincipalPolicy(
+      new PolicyStatement({
+        actions: ['s3:GetObject', 's3:PutObject', 's3:ListBucket', 's3:GetBucketLocation'],
+        resources: ['*'],
+      }),
+    );
+    generateGeneralThemes.role?.addToPrincipalPolicy(
+      new PolicyStatement({
+        actions: ['s3tables:*'],
+        resources: [`arn:aws:s3tables:${this.region}:${this.account}:bucket/*`],
       }),
     );
     generateGeneralThemes.role?.addToPrincipalPolicy(
@@ -1050,11 +1111,12 @@ export class ApplicationStack extends Stack {
       'theme-scheduler-tools',
     );
     generatePortfolioThemes.addEnvironment('LOG_LEVEL', 'INFO');
+    generatePortfolioThemes.addEnvironment('ATHENA_WORKGROUP', 's3tables');
 
     // Grant Lambda permission to invoke Web Crawler MCP
     webCrawlerMcp.agentCoreRuntime.grantInvoke(generatePortfolioThemes);
 
-    // Redshift, Lake Formation, and Bedrock permissions for theme generation
+    // Redshift, Athena, Lake Formation, and Bedrock permissions for theme generation
     generatePortfolioThemes.role?.addToPrincipalPolicy(
       new PolicyStatement({
         actions: [
@@ -1074,6 +1136,31 @@ export class ApplicationStack extends Stack {
           'redshift-data:GetStatementResult',
         ],
         resources: ['*'],
+      }),
+    );
+    generatePortfolioThemes.role?.addToPrincipalPolicy(
+      new PolicyStatement({
+        actions: [
+          'athena:StartQueryExecution',
+          'athena:GetQueryExecution',
+          'athena:GetQueryResults',
+          'athena:StopQueryExecution',
+        ],
+        resources: [
+          `arn:aws:athena:${this.region}:${this.account}:workgroup/*`,
+        ],
+      }),
+    );
+    generatePortfolioThemes.role?.addToPrincipalPolicy(
+      new PolicyStatement({
+        actions: ['s3:GetObject', 's3:PutObject', 's3:ListBucket', 's3:GetBucketLocation'],
+        resources: ['*'],
+      }),
+    );
+    generatePortfolioThemes.role?.addToPrincipalPolicy(
+      new PolicyStatement({
+        actions: ['s3tables:*'],
+        resources: [`arn:aws:s3tables:${this.region}:${this.account}:bucket/*`],
       }),
     );
     generatePortfolioThemes.role?.addToPrincipalPolicy(
