@@ -437,13 +437,13 @@ async def list_source_documents(portfolio_id: str):
     return {"documents": docs}
 
 
-@app.get("/dd/portfolios/{portfolio_id}/documents/{doc_key:path}/url")
-async def get_document_url(portfolio_id: str, doc_key: str):
+@app.get("/dd/portfolios/{portfolio_id}/documents/url")
+async def get_document_url(portfolio_id: str, key: str):
     """Generate a presigned S3 URL for a source document."""
     from ..seed_data import SOURCE_DOCUMENTS
 
     docs = SOURCE_DOCUMENTS.get(portfolio_id, [])
-    if not any(d["key"] == doc_key for d in docs):
+    if not any(d["key"] == key for d in docs):
         raise HTTPException(status_code=404, detail="Document not found")
 
     bucket = os.environ.get("DD_SOURCE_DOCS_BUCKET")
@@ -453,7 +453,7 @@ async def get_document_url(portfolio_id: str, doc_key: str):
     s3_client = boto3.client("s3")
     url = s3_client.generate_presigned_url(
         "get_object",
-        Params={"Bucket": bucket, "Key": doc_key},
+        Params={"Bucket": bucket, "Key": key},
         ExpiresIn=3600,
     )
     return {"url": url}

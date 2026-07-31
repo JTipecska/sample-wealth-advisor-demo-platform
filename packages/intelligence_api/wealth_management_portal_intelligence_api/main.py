@@ -60,7 +60,7 @@ def _call_routing_agent(message: str) -> str:
         return "Routing agent not configured."
     client = boto3.client(
         "bedrock-agentcore",
-        region_name=os.environ.get("AWS_REGION", "us-west-2"),
+        region_name=os.environ.get("AWS_REGION", "ap-southeast-2"),
         config=botocore.config.Config(read_timeout=300),
     )
     payload = json.dumps(

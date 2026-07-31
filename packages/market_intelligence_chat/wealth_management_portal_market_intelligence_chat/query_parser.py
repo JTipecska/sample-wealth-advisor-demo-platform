@@ -27,7 +27,7 @@ class ParsedQuery:
 class QueryParser:
     """Parse natural language stock queries using LLM"""
 
-    def __init__(self, region: str = "us-east-1"):
+    def __init__(self, region: str = os.environ.get("AWS_REGION", "ap-southeast-2")):
         """
         Initialize query parser
 

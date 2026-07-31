@@ -106,7 +106,7 @@ class ThemeProcessor:
     def __init__(
         self,
         mcp_client,
-        bedrock_region: str = "us-east-1",
+        bedrock_region: str = os.environ.get("AWS_REGION", "ap-southeast-2"),
         use_cross_region: bool = True,
     ):
         """
@@ -496,7 +496,7 @@ class PortfolioThemeProcessor(ThemeProcessor):
     def __init__(
         self,
         mcp_client,
-        bedrock_region: str = "us-east-1",
+        bedrock_region: str = os.environ.get("AWS_REGION", "ap-southeast-2"),
         use_cross_region: bool = True,
     ):
         """Initialize portfolio theme processor"""

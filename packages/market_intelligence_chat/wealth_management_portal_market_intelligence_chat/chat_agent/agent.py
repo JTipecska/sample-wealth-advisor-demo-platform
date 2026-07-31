@@ -183,7 +183,7 @@ def get_related_themes(
     limit: int = 5,
     workgroup: str = "financial-advisor-wg",
     database: str = "financial-advisor-db",
-    region: str = "us-west-2",
+    region: str = "ap-southeast-2",
     profile_name: str = "wealth_management",
 ) -> dict:
     """
@@ -270,7 +270,7 @@ def generate_ai_response(query: str, stock_data: dict, themes: list[dict] | None
         Dictionary with AI-generated response
     """
     try:
-        config = Config(region_name="us-east-1", retries={"max_attempts": 3, "mode": "adaptive"})
+        config = Config(region_name=os.environ.get("AWS_REGION", "ap-southeast-2"), retries={"max_attempts": 3, "mode": "adaptive"})
         bedrock = boto3.client("bedrock-runtime", config=config)
         model_id = os.environ.get("CLIENT_SEARCH_MODEL_ID", "au.anthropic.claude-sonnet-5-v1:0")
 

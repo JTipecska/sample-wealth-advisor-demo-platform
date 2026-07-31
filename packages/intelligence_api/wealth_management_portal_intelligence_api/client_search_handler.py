@@ -141,7 +141,7 @@ class ClientSearchResponse(BaseModel):
 def _generate_sql(nl_query: str) -> str:
     """Use Bedrock to convert natural language to SQL."""
     bedrock = boto3.client(
-        "bedrock-runtime", config=Config(region_name="us-east-1", retries={"max_attempts": 3, "mode": "adaptive"})
+        "bedrock-runtime", config=Config(region_name=os.environ.get("AWS_REGION", "ap-southeast-2"), retries={"max_attempts": 3, "mode": "adaptive"})
     )
     response = bedrock.invoke_model(
         modelId=os.environ.get("CLIENT_SEARCH_MODEL_ID", "au.anthropic.claude-sonnet-5-v1:0"),
