@@ -897,14 +897,21 @@ export class ApplicationStack extends Stack {
         );
         integration.handler.role?.addToPrincipalPolicy(
           new PolicyStatement({
-            actions: ['s3:GetObject', 's3:PutObject', 's3:ListBucket', 's3:GetBucketLocation'],
+            actions: [
+              's3:GetObject',
+              's3:PutObject',
+              's3:ListBucket',
+              's3:GetBucketLocation',
+            ],
             resources: ['*'],
           }),
         );
         integration.handler.role?.addToPrincipalPolicy(
           new PolicyStatement({
             actions: ['s3tables:*'],
-            resources: [`arn:aws:s3tables:${this.region}:${this.account}:bucket/*`],
+            resources: [
+              `arn:aws:s3tables:${this.region}:${this.account}:bucket/*`,
+            ],
           }),
         );
         integration.handler.role?.addToPrincipalPolicy(
@@ -922,8 +929,14 @@ export class ApplicationStack extends Stack {
         );
         integration.handler.addEnvironment('DATA_ENGINE', 'athena');
         integration.handler.addEnvironment('ATHENA_WORKGROUP', 's3tables');
-        integration.handler.addEnvironment('REDSHIFT_WORKGROUP', redshiftWorkgroup);
-        integration.handler.addEnvironment('REDSHIFT_DATABASE', redshiftDatabase);
+        integration.handler.addEnvironment(
+          'REDSHIFT_WORKGROUP',
+          redshiftWorkgroup,
+        );
+        integration.handler.addEnvironment(
+          'REDSHIFT_DATABASE',
+          redshiftDatabase,
+        );
         // Pass advisor chat agent ARNs for A2A routing
         integration.handler.addEnvironment(
           'DATABASE_AGENT_ARN',
@@ -1000,12 +1013,8 @@ export class ApplicationStack extends Stack {
     );
     getClientList.role?.addToPrincipalPolicy(
       new PolicyStatement({
-        actions: [
-          's3tables:*',
-        ],
-        resources: [
-          `arn:aws:s3tables:${this.region}:${this.account}:bucket/*`,
-        ],
+        actions: ['s3tables:*'],
+        resources: [`arn:aws:s3tables:${this.region}:${this.account}:bucket/*`],
       }),
     );
     getClientList.role?.addToPrincipalPolicy(
@@ -1103,7 +1112,12 @@ export class ApplicationStack extends Stack {
     );
     generateGeneralThemes.role?.addToPrincipalPolicy(
       new PolicyStatement({
-        actions: ['s3:GetObject', 's3:PutObject', 's3:ListBucket', 's3:GetBucketLocation'],
+        actions: [
+          's3:GetObject',
+          's3:PutObject',
+          's3:ListBucket',
+          's3:GetBucketLocation',
+        ],
         resources: ['*'],
       }),
     );
@@ -1196,7 +1210,12 @@ export class ApplicationStack extends Stack {
     );
     generatePortfolioThemes.role?.addToPrincipalPolicy(
       new PolicyStatement({
-        actions: ['s3:GetObject', 's3:PutObject', 's3:ListBucket', 's3:GetBucketLocation'],
+        actions: [
+          's3:GetObject',
+          's3:PutObject',
+          's3:ListBucket',
+          's3:GetBucketLocation',
+        ],
         resources: ['*'],
       }),
     );
@@ -1422,7 +1441,12 @@ export class ApplicationStack extends Stack {
     );
     ddQuantAnalyst.agentCoreRuntime.role.addToPrincipalPolicy(
       new PolicyStatement({
-        actions: ['s3:GetObject', 's3:PutObject', 's3:ListBucket', 's3:GetBucketLocation'],
+        actions: [
+          's3:GetObject',
+          's3:PutObject',
+          's3:ListBucket',
+          's3:GetBucketLocation',
+        ],
         resources: ['*'],
       }),
     );
