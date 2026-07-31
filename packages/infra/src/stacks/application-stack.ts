@@ -1131,11 +1131,11 @@ export class ApplicationStack extends Stack {
       },
     });
 
-    // Daily theme generation schedule (2 AM UTC) — currently disabled
+    // Daily theme generation schedule (2 AM UTC)
     new CfnSchedule(this, 'ThemeSchedule', {
       scheduleExpression: 'cron(0 2 * * ? *)',
       description: 'Trigger daily theme generation at 2 AM UTC',
-      state: 'DISABLED',
+      state: 'ENABLED',
       flexibleTimeWindow: { mode: 'OFF' },
       target: {
         arn: themeScheduler.stateMachine.stateMachineArn,
