@@ -34,7 +34,7 @@ def get_reports_summary() -> ReportsSummaryResponse:
     """Return list of client IDs that have completed reports."""
     logger.info("Fetching reports summary")
 
-    if os.environ.get("DATA_ENGINE", "redshift").lower() == "athena":
+    if os.environ.get("DATA_ENGINE", "athena").lower() == "athena":
         return _get_reports_summary_athena()
 
     return _get_reports_summary_redshift()
@@ -72,7 +72,7 @@ def get_client_report(client_id: str) -> ReportStatusResponse:
     """Get latest report status and presigned download URL for a client."""
     logger.info("Fetching report for client", client_id=client_id)
 
-    if os.environ.get("DATA_ENGINE", "redshift").lower() == "athena":
+    if os.environ.get("DATA_ENGINE", "athena").lower() == "athena":
         return _get_report_athena(client_id)
 
     return _get_report_redshift(client_id)
@@ -106,7 +106,7 @@ def generate_client_report(client_id: str) -> ReportStatusResponse:
         s3_path = result.get("s3_path", "")
         next_best_action = result.get("next_best_action", "")
 
-        if s3_path and os.environ.get("DATA_ENGINE", "redshift").lower() == "athena":
+        if s3_path and os.environ.get("DATA_ENGINE", "athena").lower() == "athena":
             _save_report_to_athena(report_id, client_id, s3_path, next_best_action)
 
         presigned_url = None

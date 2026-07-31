@@ -10,7 +10,7 @@ class AUMRepository(DataApiBaseRepository):
 
     def get_total_aum_trends(self, limit: int = 12) -> list[dict]:
         """Get aggregated total AUM trends across all advisors."""
-        if os.environ.get("DATA_ENGINE", "redshift").lower() == "athena":
+        if os.environ.get("DATA_ENGINE", "athena").lower() == "athena":
             sql = """
                 SELECT
                     CAST(date_trunc('month', p.period_end_date) AS varchar) AS report_month,
@@ -35,7 +35,7 @@ class AUMRepository(DataApiBaseRepository):
 
     def get_dashboard_summary(self) -> dict:
         """Get dashboard summary."""
-        if os.environ.get("DATA_ENGINE", "redshift").lower() == "athena":
+        if os.environ.get("DATA_ENGINE", "athena").lower() == "athena":
             sql = """
                 SELECT
                     COALESCE(sum(p_latest.ending_value), 0) AS total_aum_latest_month,
@@ -92,7 +92,7 @@ class AUMRepository(DataApiBaseRepository):
 
     def get_client_aum(self, client_id: str, months: int = 12) -> list[dict]:
         """Get AUM data for a client."""
-        if os.environ.get("DATA_ENGINE", "redshift").lower() == "athena":
+        if os.environ.get("DATA_ENGINE", "athena").lower() == "athena":
             sql = """
                 SELECT
                     date_format(date_trunc('month', p.period_end_date), '%Y-%m') AS month,

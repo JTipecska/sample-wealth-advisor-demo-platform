@@ -882,6 +882,48 @@ export class ApplicationStack extends Stack {
             ],
           }),
         );
+        integration.handler.role?.addToPrincipalPolicy(
+          new PolicyStatement({
+            actions: [
+              'athena:StartQueryExecution',
+              'athena:GetQueryExecution',
+              'athena:GetQueryResults',
+              'athena:StopQueryExecution',
+            ],
+            resources: [
+              `arn:aws:athena:${this.region}:${this.account}:workgroup/*`,
+            ],
+          }),
+        );
+        integration.handler.role?.addToPrincipalPolicy(
+          new PolicyStatement({
+            actions: ['s3:GetObject', 's3:PutObject', 's3:ListBucket', 's3:GetBucketLocation'],
+            resources: ['*'],
+          }),
+        );
+        integration.handler.role?.addToPrincipalPolicy(
+          new PolicyStatement({
+            actions: ['s3tables:*'],
+            resources: [`arn:aws:s3tables:${this.region}:${this.account}:bucket/*`],
+          }),
+        );
+        integration.handler.role?.addToPrincipalPolicy(
+          new PolicyStatement({
+            actions: [
+              'lakeformation:GetDataAccess',
+              'glue:GetTable',
+              'glue:GetTables',
+              'glue:GetDatabase',
+              'glue:GetDatabases',
+              'glue:GetCatalog',
+            ],
+            resources: ['*'],
+          }),
+        );
+        integration.handler.addEnvironment('DATA_ENGINE', 'athena');
+        integration.handler.addEnvironment('ATHENA_WORKGROUP', 's3tables');
+        integration.handler.addEnvironment('REDSHIFT_WORKGROUP', redshiftWorkgroup);
+        integration.handler.addEnvironment('REDSHIFT_DATABASE', redshiftDatabase);
         // Pass advisor chat agent ARNs for A2A routing
         integration.handler.addEnvironment(
           'DATABASE_AGENT_ARN',
@@ -906,6 +948,7 @@ export class ApplicationStack extends Stack {
 
     getClientList.addEnvironment('REDSHIFT_WORKGROUP', redshiftWorkgroup);
     getClientList.addEnvironment('REDSHIFT_DATABASE', redshiftDatabase);
+    getClientList.addEnvironment('DATA_ENGINE', 'athena');
     getClientList.addEnvironment('ATHENA_WORKGROUP', 's3tables');
     getClientList.addEnvironment('POWERTOOLS_SERVICE_NAME', 'scheduler-tools');
     getClientList.addEnvironment('LOG_LEVEL', 'INFO');
@@ -1264,6 +1307,8 @@ export class ApplicationStack extends Stack {
     const ddQuantAnalyst = new DDQuantAnalyst(this, 'DDQuantAnalyst', {
       environmentVariables: {
         AWS_REGION: this.region,
+        DATA_ENGINE: 'athena',
+        ATHENA_WORKGROUP: 's3tables',
         REDSHIFT_WORKGROUP: redshiftWorkgroup,
         REDSHIFT_DATABASE: redshiftDatabase,
       },
@@ -1338,7 +1383,7 @@ export class ApplicationStack extends Stack {
       }),
     );
 
-    // Grant quant-analyst Redshift access
+    // Grant quant-analyst Redshift + Athena + S3 Tables access
     ddQuantAnalyst.agentCoreRuntime.role.addToPrincipalPolicy(
       new PolicyStatement({
         actions: [
@@ -1358,6 +1403,44 @@ export class ApplicationStack extends Stack {
         actions: [
           'redshift-data:DescribeStatement',
           'redshift-data:GetStatementResult',
+        ],
+        resources: ['*'],
+      }),
+    );
+    ddQuantAnalyst.agentCoreRuntime.role.addToPrincipalPolicy(
+      new PolicyStatement({
+        actions: [
+          'athena:StartQueryExecution',
+          'athena:GetQueryExecution',
+          'athena:GetQueryResults',
+          'athena:StopQueryExecution',
+        ],
+        resources: [
+          `arn:aws:athena:${this.region}:${this.account}:workgroup/*`,
+        ],
+      }),
+    );
+    ddQuantAnalyst.agentCoreRuntime.role.addToPrincipalPolicy(
+      new PolicyStatement({
+        actions: ['s3:GetObject', 's3:PutObject', 's3:ListBucket', 's3:GetBucketLocation'],
+        resources: ['*'],
+      }),
+    );
+    ddQuantAnalyst.agentCoreRuntime.role.addToPrincipalPolicy(
+      new PolicyStatement({
+        actions: ['s3tables:*'],
+        resources: [`arn:aws:s3tables:${this.region}:${this.account}:bucket/*`],
+      }),
+    );
+    ddQuantAnalyst.agentCoreRuntime.role.addToPrincipalPolicy(
+      new PolicyStatement({
+        actions: [
+          'lakeformation:GetDataAccess',
+          'glue:GetTable',
+          'glue:GetTables',
+          'glue:GetDatabase',
+          'glue:GetDatabases',
+          'glue:GetCatalog',
         ],
         resources: ['*'],
       }),

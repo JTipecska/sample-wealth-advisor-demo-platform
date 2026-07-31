@@ -35,7 +35,7 @@ def extract_performance_data(portfolio_id: str, window_years: int = 3) -> dict:
     import re
     import time
 
-    use_athena = os.environ.get("DATA_ENGINE", "redshift").lower() == "athena"
+    use_athena = os.environ.get("DATA_ENGINE", "athena").lower() == "athena"
     region = os.environ.get("AWS_REGION", "ap-southeast-2")
     profile = os.environ.get("AWS_PROFILE")
     session = boto3.Session(profile_name=profile, region_name=region)

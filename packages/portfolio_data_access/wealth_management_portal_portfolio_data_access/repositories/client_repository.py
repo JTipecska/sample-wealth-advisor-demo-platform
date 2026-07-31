@@ -10,7 +10,7 @@ class ClientRepository(DataApiBaseRepository):
 
     def get_all_clients(self, limit: int = 50, offset: int = 0) -> list[dict]:
         """Get all clients."""
-        if os.environ.get("DATA_ENGINE", "redshift").lower() == "athena":
+        if os.environ.get("DATA_ENGINE", "athena").lower() == "athena":
             sql = """
                 SELECT
                     c.client_id,

@@ -10,7 +10,7 @@ class ClientSegmentRepository(DataApiBaseRepository):
 
     def get_client_segments(self) -> list[dict]:
         """Get client counts grouped by segment."""
-        if os.environ.get("DATA_ENGINE", "redshift").lower() == "athena":
+        if os.environ.get("DATA_ENGINE", "athena").lower() == "athena":
             sql = """
                 SELECT segment, COUNT(*) as client_count
                 FROM clients

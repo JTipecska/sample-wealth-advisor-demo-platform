@@ -29,7 +29,7 @@ class RedshiftClient:
         self.workgroup = workgroup
         self.database = database
         self.region = region
-        self._use_athena = os.environ.get("DATA_ENGINE", "redshift").lower() == "athena"
+        self._use_athena = os.environ.get("DATA_ENGINE", "athena").lower() == "athena"
 
         profile = os.environ.get("AWS_PROFILE")
         session = boto3.Session(profile_name=profile, region_name=region)

@@ -10,7 +10,7 @@ class HoldingsRepository(DataApiBaseRepository):
 
     def get_client_holdings(self, client_id: str, limit: int = 20, offset: int = 0) -> list[dict]:
         """Get holdings for a specific client."""
-        if os.environ.get("DATA_ENGINE", "redshift").lower() == "athena":
+        if os.environ.get("DATA_ENGINE", "athena").lower() == "athena":
             sql = """
                 SELECT
                     h.portfolio_id,
