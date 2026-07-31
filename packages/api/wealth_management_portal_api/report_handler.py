@@ -24,6 +24,50 @@ class ReportStatusResponse(BaseModel):
     next_best_action: str | None = None
 
 
+class ReportsSummaryResponse(BaseModel):
+    """Summary of which clients have reports available."""
+
+    clients_with_reports: list[str]
+
+
+def get_reports_summary() -> ReportsSummaryResponse:
+    """Return list of client IDs that have completed reports."""
+    logger.info("Fetching reports summary")
+
+    if os.environ.get("DATA_ENGINE", "redshift").lower() == "athena":
+        return _get_reports_summary_athena()
+
+    return _get_reports_summary_redshift()
+
+
+def _get_reports_summary_athena() -> ReportsSummaryResponse:
+    from wealth_management_portal_portfolio_data_access.repositories.data_api_base_repository import (
+        DataApiBaseRepository,
+    )
+
+    repo = DataApiBaseRepository()
+    sql = """
+        SELECT DISTINCT client_id
+        FROM client_reports
+        WHERE status = 'complete' AND s3_path IS NOT NULL AND s3_path != ''
+    """
+    results = repo._execute_and_wait(sql)
+    client_ids = [r["client_id"] for r in results] if results else []
+    return ReportsSummaryResponse(clients_with_reports=client_ids)
+
+
+def _get_reports_summary_redshift() -> ReportsSummaryResponse:
+    from wealth_management_portal_portfolio_data_access.engine import iam_connection_factory
+
+    factory = iam_connection_factory()
+    with factory() as conn:
+        cursor = conn.execute(
+            "SELECT DISTINCT client_id FROM public.client_reports WHERE status = 'complete' AND s3_path IS NOT NULL"
+        )
+        client_ids = [row[0] for row in cursor.fetchall()]
+    return ReportsSummaryResponse(clients_with_reports=client_ids)
+
+
 def get_client_report(client_id: str) -> ReportStatusResponse:
     """Get latest report status and presigned download URL for a client."""
     logger.info("Fetching report for client", client_id=client_id)

@@ -8,11 +8,13 @@ import type { Api } from '../generated/api/client.gen';
 
 function ReportCell({
   clientId,
+  hasReport,
   api,
   apiUrl,
   token,
 }: {
   clientId: string;
+  hasReport: boolean;
   api: Api;
   apiUrl: string;
   token: string | undefined;
@@ -106,9 +108,9 @@ function ReportCell({
   return (
     <button
       onClick={handleViewOrGenerate}
-      className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+      className={`text-xs font-medium ${hasReport ? 'text-blue-600 hover:text-blue-700' : 'text-amber-600 hover:text-amber-700'}`}
     >
-      View Report
+      {hasReport ? 'View Report' : 'Generate Report'}
     </button>
   );
 }
@@ -128,22 +130,34 @@ export function ReportsPage() {
   const runtimeConfig = useRuntimeConfig();
   const auth = useAuth();
   const [clients, setClients] = useState<Client[]>([]);
+  const [clientsWithReports, setClientsWithReports] = useState<Set<string>>(
+    new Set(),
+  );
   const [loading, setLoading] = useState(true);
 
   const apiUrl = runtimeConfig?.apis?.Api ?? '';
   const token = auth.user?.id_token;
 
   useEffect(() => {
-    api
-      .clients({ limit: 100 })
-      .then((res) => {
-        setClients(res.clients || []);
+    Promise.all([
+      api.clients({ limit: 100 }),
+      fetch(`${apiUrl}reports/summary`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      }).then((r) => (r.ok ? r.json() : { clients_with_reports: [] })),
+    ])
+      .then(([clientsRes, summaryRes]) => {
+        setClients(clientsRes.clients || []);
+        setClientsWithReports(
+          new Set(summaryRes.clients_with_reports || []),
+        );
       })
       .catch(() => setClients([]))
       .finally(() => setLoading(false));
-  }, [api]);
+  }, [api, apiUrl, token]);
 
   const totalClients = clients.length;
+  const reportsAvailable = clientsWithReports.size;
+  const pendingGeneration = Math.max(0, totalClients - reportsAvailable);
 
   return (
     <PageLayout title="Reports">
@@ -158,13 +172,13 @@ export function ReportsPage() {
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <p className="text-sm text-gray-500">Reports Available</p>
           <p className="text-3xl font-bold mt-1 text-green-600">
-            {totalClients}
+            {reportsAvailable}
           </p>
         </div>
         <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <p className="text-sm text-gray-500">Generate on Demand</p>
+          <p className="text-sm text-gray-500">Pending Generation</p>
           <p className="text-3xl font-bold mt-1 text-amber-600">
-            Click "View Report"
+            {pendingGeneration}
           </p>
         </div>
       </div>
@@ -234,6 +248,7 @@ export function ReportsPage() {
                   <td className="px-6 py-4">
                     <ReportCell
                       clientId={c.clientId}
+                      hasReport={clientsWithReports.has(c.clientId)}
                       api={api}
                       apiUrl={apiUrl}
                       token={token}

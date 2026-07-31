@@ -39,7 +39,7 @@ from .portfolio_themes_handler import (  # noqa: E402
     get_portfolio_themes as get_portfolio_themes_v2,
 )
 from .portfolio_handler import PortfolioSummaryResponse, get_portfolio_summary  # noqa: E402
-from .report_handler import ReportStatusResponse, generate_client_report, get_client_report  # noqa: E402
+from .report_handler import ReportStatusResponse, ReportsSummaryResponse, generate_client_report, get_client_report, get_reports_summary  # noqa: E402
 from .top_clients_handler import TopClientsResponse, get_top_clients  # noqa: E402
 from .transactions_handler import (  # noqa: E402
     TransactionsListResponse,
@@ -212,6 +212,13 @@ def theme_articles(theme_id: str):
 
 
 # --- Client Report ---
+
+
+@app.get("/reports/summary")
+@tracer.capture_method
+def reports_summary() -> ReportsSummaryResponse:
+    """Return which clients have completed reports."""
+    return get_reports_summary()
 
 
 @app.get("/clients/{client_id}/report")
