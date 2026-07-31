@@ -39,7 +39,7 @@ from .portfolio_themes_handler import (  # noqa: E402
     get_portfolio_themes as get_portfolio_themes_v2,
 )
 from .portfolio_handler import PortfolioSummaryResponse, get_portfolio_summary  # noqa: E402
-from .report_handler import ReportStatusResponse, get_client_report  # noqa: E402
+from .report_handler import ReportStatusResponse, generate_client_report, get_client_report  # noqa: E402
 from .top_clients_handler import TopClientsResponse, get_top_clients  # noqa: E402
 from .transactions_handler import (  # noqa: E402
     TransactionsListResponse,
@@ -219,3 +219,10 @@ def theme_articles(theme_id: str):
 def client_report(client_id: str) -> ReportStatusResponse:
     """Get latest report status and presigned download URL for a client."""
     return get_client_report(client_id)
+
+
+@app.post("/clients/{client_id}/report/generate")
+@tracer.capture_method
+def generate_report(client_id: str) -> ReportStatusResponse:
+    """Trigger on-demand report generation for a client."""
+    return generate_client_report(client_id)

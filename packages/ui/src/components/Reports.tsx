@@ -1,36 +1,111 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { PageLayout } from './PageLayout';
 import { useApiClient } from '../hooks/useApiClient';
+import { useRuntimeConfig } from '../hooks/useRuntimeConfig';
+import { useAuth } from 'react-oidc-context';
 import type { Api } from '../generated/api/client.gen';
 
-function ReportCell({ clientId, api }: { clientId: string; api: Api }) {
-  const [state, setState] = useState<'idle' | 'loading' | 'error'>('idle');
+function ReportCell({
+  clientId,
+  api,
+  apiUrl,
+  token,
+}: {
+  clientId: string;
+  api: Api;
+  apiUrl: string;
+  token: string | undefined;
+}) {
+  const [state, setState] = useState<
+    'idle' | 'loading' | 'generating' | 'error'
+  >('idle');
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const handleClick = () => {
+  useEffect(
+    () => () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    },
+    [],
+  );
+
+  const handleViewOrGenerate = () => {
     setState('loading');
     api
       .clientReport({ clientId })
       .then((r) => {
         if (r.status === 'complete' && r.presignedUrl) {
           window.open(r.presignedUrl, '_blank');
+          setState('idle');
         } else {
-          alert(`Report status: ${r.status}`);
+          triggerGeneration();
         }
-        setState('idle');
       })
       .catch(() => {
-        setState('error');
+        triggerGeneration();
       });
   };
 
+  const triggerGeneration = () => {
+    setState('generating');
+    fetch(`${apiUrl}clients/${clientId}/report/generate`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+      .then((r) => r.json())
+      .then((result) => {
+        if (result.presigned_url) {
+          window.open(result.presigned_url, '_blank');
+          setState('idle');
+        } else {
+          pollForReport();
+        }
+      })
+      .catch(() => setState('error'));
+  };
+
+  const pollForReport = () => {
+    let attempts = 0;
+    pollRef.current = setInterval(() => {
+      attempts++;
+      if (attempts > 30) {
+        if (pollRef.current) clearInterval(pollRef.current);
+        setState('error');
+        return;
+      }
+      api
+        .clientReport({ clientId })
+        .then((r) => {
+          if (r.presignedUrl) {
+            if (pollRef.current) clearInterval(pollRef.current);
+            window.open(r.presignedUrl, '_blank');
+            setState('idle');
+          }
+        })
+        .catch(() => {});
+    }, 3000);
+  };
+
   if (state === 'loading')
-    return <span className="text-xs text-gray-400">Loading...</span>;
+    return <span className="text-xs text-gray-400">Checking...</span>;
+  if (state === 'generating')
+    return (
+      <span className="text-xs text-amber-600 animate-pulse">
+        Generating...
+      </span>
+    );
   if (state === 'error')
-    return <span className="text-xs text-red-400">Failed</span>;
+    return (
+      <button
+        onClick={handleViewOrGenerate}
+        className="text-xs text-red-500 hover:text-red-700 font-medium"
+      >
+        Retry
+      </button>
+    );
   return (
     <button
-      onClick={handleClick}
+      onClick={handleViewOrGenerate}
       className="text-xs text-blue-600 hover:text-blue-700 font-medium"
     >
       View Report
@@ -50,8 +125,13 @@ interface Client {
 export function ReportsPage() {
   const navigate = useNavigate();
   const api = useApiClient();
+  const runtimeConfig = useRuntimeConfig();
+  const auth = useAuth();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const apiUrl = runtimeConfig?.apis?.Api ?? '';
+  const token = auth.user?.id_token;
 
   useEffect(() => {
     api
@@ -78,12 +158,14 @@ export function ReportsPage() {
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <p className="text-sm text-gray-500">Reports Available</p>
           <p className="text-3xl font-bold mt-1 text-green-600">
-            {Math.max(0, totalClients - 3)}
+            {totalClients}
           </p>
         </div>
         <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <p className="text-sm text-gray-500">Pending Generation</p>
-          <p className="text-3xl font-bold mt-1 text-amber-600">3</p>
+          <p className="text-sm text-gray-500">Generate on Demand</p>
+          <p className="text-3xl font-bold mt-1 text-amber-600">
+            Click "View Report"
+          </p>
         </div>
       </div>
 
@@ -150,7 +232,12 @@ export function ReportsPage() {
                     </span>
                   </td>
                   <td className="px-6 py-4">
-                    <ReportCell clientId={c.clientId} api={api} />
+                    <ReportCell
+                      clientId={c.clientId}
+                      api={api}
+                      apiUrl={apiUrl}
+                      token={token}
+                    />
                   </td>
                   <td className="px-6 py-4 text-gray-500 text-xs max-w-[200px] truncate">
                     {c.nextBestAction || '—'}

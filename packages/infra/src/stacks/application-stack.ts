@@ -851,6 +851,14 @@ export class ApplicationStack extends Stack {
           `s3://${reportAgent.reportBucket.bucketName}/athena-results/`,
         );
         reportAgent.reportBucket.grantReadWrite(integration.handler);
+        integration.handler.addEnvironment(
+          'REPORT_AGENT_ARN',
+          reportAgent.agentCoreRuntime.runtimeArn,
+        );
+        integration.handler.addEnvironment(
+          'REPORT_S3_BUCKET',
+          reportAgent.reportBucket.bucketName,
+        );
 
         // S3 Tables federated catalog requires broad permissions (demo only)
         integration.handler.role?.addManagedPolicy(
