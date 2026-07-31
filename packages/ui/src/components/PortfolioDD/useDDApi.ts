@@ -205,7 +205,7 @@ export function useDDApi() {
     async (portfolioId: string, docKey: string): Promise<string | null> => {
       try {
         const r = await fetch(
-          `${baseUrl}/dd/portfolios/${portfolioId}/documents/${encodeURIComponent(docKey)}/url`,
+          `${baseUrl}/dd/portfolios/${portfolioId}/documents/${docKey}/url`,
           { headers: headers() },
         );
         if (!r.ok) return null;
