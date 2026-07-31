@@ -80,24 +80,24 @@ phases:
           aws lakeformation put-data-lake-settings --region $AWS_REGION --cli-input-json file:///tmp/lf-settings.json
           echo "Added as LF admin"
         fi
-      - pnpm nx grant-lf-permissions @wealth-management-portal/infra || echo "WARNING: LF grants skipped (data platform not yet deployed)"
-      - pnpm nx grant-redshift-permissions @wealth-management-portal/infra || echo "WARNING: Redshift grants skipped (data platform not yet deployed)"
-      - uv run python scripts/load-neptune-data.py --region $AWS_REGION || echo "WARNING: Neptune data load skipped"
+      - "pnpm nx grant-lf-permissions @wealth-management-portal/infra || echo 'WARNING: LF grants skipped (data platform not yet deployed)'"
+      - "pnpm nx grant-redshift-permissions @wealth-management-portal/infra || echo 'WARNING: Redshift grants skipped (data platform not yet deployed)'"
+      - "uv run python scripts/load-neptune-data.py --region $AWS_REGION || echo 'WARNING: Neptune data load skipped'"
       - |
         echo "Triggering step function executions..."
         REPORT_SM_ARN=$(aws stepfunctions list-state-machines --region $AWS_REGION --query "stateMachines[?contains(name,'ReportScheduler')].stateMachineArn | [0]" --output text)
         THEME_SM_ARN=$(aws stepfunctions list-state-machines --region $AWS_REGION --query "stateMachines[?contains(name,'ThemeScheduler')].stateMachineArn | [0]" --output text)
         if [ "$REPORT_SM_ARN" != "None" ] && [ -n "$REPORT_SM_ARN" ]; then
           aws stepfunctions start-execution --state-machine-arn "$REPORT_SM_ARN" --region $AWS_REGION
-          echo "  ✓ Started ReportScheduler execution"
+          echo "  Started ReportScheduler execution"
         else
-          echo "  ✗ ReportScheduler state machine not found — skipping (deploy the app stack first)"
+          echo "  ReportScheduler state machine not found - skipping (deploy the app stack first)"
         fi
         if [ "$THEME_SM_ARN" != "None" ] && [ -n "$THEME_SM_ARN" ]; then
           aws stepfunctions start-execution --state-machine-arn "$THEME_SM_ARN" --region $AWS_REGION
-          echo "  ✓ Started ThemeScheduler execution"
+          echo "  Started ThemeScheduler execution"
         else
-          echo "  ✗ ThemeScheduler state machine not found — skipping (deploy the app stack first)"
+          echo "  ThemeScheduler state machine not found - skipping (deploy the app stack first)"
         fi
       - pnpm nx create-user @wealth-management-portal/infra -- --email=$TEST_USER_EMAIL --password=$TEST_USER_PASSWORD
 
