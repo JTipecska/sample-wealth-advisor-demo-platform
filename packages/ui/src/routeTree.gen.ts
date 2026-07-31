@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ReportsRouteImport } from './routes/reports'
+import { Route as PortfolioRouteImport } from './routes/portfolio'
 import { Route as MessagesRouteImport } from './routes/messages'
 import { Route as GraphSearchRouteImport } from './routes/graph-search'
 import { Route as CalendarRouteImport } from './routes/calendar'
@@ -30,6 +31,11 @@ const SettingsRoute = SettingsRouteImport.update({
 const ReportsRoute = ReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PortfolioRoute = PortfolioRouteImport.update({
+  id: '/portfolio',
+  path: '/portfolio',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MessagesRoute = MessagesRouteImport.update({
@@ -89,6 +95,7 @@ export interface FileRoutesByFullPath {
   '/calendar': typeof CalendarRoute
   '/graph-search': typeof GraphSearchRoute
   '/messages': typeof MessagesRoute
+  '/portfolio': typeof PortfolioRoute
   '/reports': typeof ReportsRoute
   '/settings': typeof SettingsRoute
   '/clients/$clientId': typeof ClientsClientIdRouteWithChildren
@@ -103,6 +110,7 @@ export interface FileRoutesByTo {
   '/calendar': typeof CalendarRoute
   '/graph-search': typeof GraphSearchRoute
   '/messages': typeof MessagesRoute
+  '/portfolio': typeof PortfolioRoute
   '/reports': typeof ReportsRoute
   '/settings': typeof SettingsRoute
   '/clients/$clientId': typeof ClientsClientIdRouteWithChildren
@@ -118,6 +126,7 @@ export interface FileRoutesById {
   '/calendar': typeof CalendarRoute
   '/graph-search': typeof GraphSearchRoute
   '/messages': typeof MessagesRoute
+  '/portfolio': typeof PortfolioRoute
   '/reports': typeof ReportsRoute
   '/settings': typeof SettingsRoute
   '/clients/$clientId': typeof ClientsClientIdRouteWithChildren
@@ -134,6 +143,7 @@ export interface FileRouteTypes {
     | '/calendar'
     | '/graph-search'
     | '/messages'
+    | '/portfolio'
     | '/reports'
     | '/settings'
     | '/clients/$clientId'
@@ -148,6 +158,7 @@ export interface FileRouteTypes {
     | '/calendar'
     | '/graph-search'
     | '/messages'
+    | '/portfolio'
     | '/reports'
     | '/settings'
     | '/clients/$clientId'
@@ -162,6 +173,7 @@ export interface FileRouteTypes {
     | '/calendar'
     | '/graph-search'
     | '/messages'
+    | '/portfolio'
     | '/reports'
     | '/settings'
     | '/clients/$clientId'
@@ -177,6 +189,7 @@ export interface RootRouteChildren {
   CalendarRoute: typeof CalendarRoute
   GraphSearchRoute: typeof GraphSearchRoute
   MessagesRoute: typeof MessagesRoute
+  PortfolioRoute: typeof PortfolioRoute
   ReportsRoute: typeof ReportsRoute
   SettingsRoute: typeof SettingsRoute
   ClientsClientIdRoute: typeof ClientsClientIdRouteWithChildren
@@ -199,6 +212,13 @@ declare module '@tanstack/react-router' {
       path: '/reports'
       fullPath: '/reports'
       preLoaderRoute: typeof ReportsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/portfolio': {
+      id: '/portfolio'
+      path: '/portfolio'
+      fullPath: '/portfolio'
+      preLoaderRoute: typeof PortfolioRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/messages': {
@@ -302,6 +322,7 @@ const rootRouteChildren: RootRouteChildren = {
   CalendarRoute: CalendarRoute,
   GraphSearchRoute: GraphSearchRoute,
   MessagesRoute: MessagesRoute,
+  PortfolioRoute: PortfolioRoute,
   ReportsRoute: ReportsRoute,
   SettingsRoute: SettingsRoute,
   ClientsClientIdRoute: ClientsClientIdRouteWithChildren,

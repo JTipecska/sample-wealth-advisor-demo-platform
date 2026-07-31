@@ -38,6 +38,7 @@ from .portfolio_themes_handler import (  # noqa: E402
     PortfolioThemesResponse,
     get_portfolio_themes as get_portfolio_themes_v2,
 )
+from .portfolio_handler import PortfolioSummaryResponse, get_portfolio_summary  # noqa: E402
 from .report_handler import ReportStatusResponse, get_client_report  # noqa: E402
 from .top_clients_handler import TopClientsResponse, get_top_clients  # noqa: E402
 from .transactions_handler import (  # noqa: E402
@@ -91,6 +92,13 @@ def clients(limit: int = Query(default=50, ge=1, le=100), offset: int = Query(de
 def top_clients() -> TopClientsResponse:
     """Get top 5 clients by AUM"""
     return get_top_clients()
+
+
+@app.get("/portfolio-summary")
+@tracer.capture_method
+def portfolio_summary() -> PortfolioSummaryResponse:
+    """Get aggregate portfolio summary across all clients"""
+    return get_portfolio_summary()
 
 
 @app.post("/clients/search")
