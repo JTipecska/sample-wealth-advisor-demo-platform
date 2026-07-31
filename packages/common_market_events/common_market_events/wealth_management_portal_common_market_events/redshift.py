@@ -61,6 +61,25 @@ class RedshiftClient:
         """Remove 'public.' prefix from table references for Athena (tables live in the catalog database)."""
         return sql.replace("public.", "")
 
+    @staticmethod
+    def _parse_csv_json_list(value) -> list[str]:
+        """Parse a sources-like field that may be CSV-escaped JSON (e.g. '"[""CNBC""')."""
+        if value is None:
+            return []
+        if isinstance(value, list):
+            return [s.strip().strip('"') for s in value if s and s.strip().strip('"')]
+        if not isinstance(value, str) or not value.strip():
+            return []
+        cleaned = value.strip().strip('"').replace('""', '"')
+        try:
+            parsed = json.loads(cleaned)
+            if isinstance(parsed, list):
+                return [str(s).strip() for s in parsed if s]
+        except (json.JSONDecodeError, TypeError, ValueError):
+            pass
+        parts = cleaned.strip("[]").split(",")
+        return [p.strip().strip('"').strip("'") for p in parts if p.strip().strip('"')]
+
     def _qualify_tables(self, sql: str) -> str:
         """Prefix bare table names with fully-qualified catalog.database path."""
         if not self._use_athena:
@@ -384,18 +403,19 @@ class RedshiftClient:
         statement_id = self.execute_statement(sql, parameters=parameters or None)
         rows = self.get_statement_result(statement_id)
         for row in rows:
-            if isinstance(row.get("sources"), str):
-                try:
-                    row["sources"] = json.loads(row["sources"])
-                except (json.JSONDecodeError, TypeError):
-                    row["sources"] = [s.strip().strip('"') for s in row["sources"].split(",") if s.strip()]
+            row["sources"] = self._parse_csv_json_list(row.get("sources"))
             if isinstance(row.get("score_breakdown"), str):
                 try:
-                    row["score_breakdown"] = json.loads(row["score_breakdown"])
-                except (json.JSONDecodeError, TypeError):
+                    row["score_breakdown"] = json.loads(row["score_breakdown"].replace('""', '"').strip('"'))
+                except (json.JSONDecodeError, TypeError, ValueError):
                     row["score_breakdown"] = None
             if isinstance(row.get("matched_tickers"), str):
-                row["matched_tickers"] = json.loads(row["matched_tickers"])
+                try:
+                    row["matched_tickers"] = json.loads(row["matched_tickers"].replace('""', '"').strip('"'))
+                except (json.JSONDecodeError, TypeError, ValueError):
+                    row["matched_tickers"] = None
+            if not row.get("score"):
+                row["score"] = None
         return [Theme(**row) for row in rows]
 
     def get_portfolio_themes(

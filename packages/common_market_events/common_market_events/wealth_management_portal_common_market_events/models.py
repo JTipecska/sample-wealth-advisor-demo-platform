@@ -67,6 +67,7 @@ class Theme(BaseModel):
         if isinstance(v, str):
             try:
                 import json as _json
+
                 return _json.loads(v)
             except Exception:
                 return [v] if v else None
