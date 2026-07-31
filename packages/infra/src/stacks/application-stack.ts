@@ -840,8 +840,10 @@ export class ApplicationStack extends Stack {
         );
         reportAgent.reportBucket.grantReadWrite(integration.handler);
 
-        // Lake Formation grants are applied via post-deploy script (buildspec / grant-lf-permissions)
-        // because the CDK execution role needs LF admin to grant on S3 Tables catalog.
+        // S3 Tables federated catalog requires broad permissions (demo only)
+        integration.handler.role?.addManagedPolicy(
+          ManagedPolicy.fromAwsManagedPolicyName('AdministratorAccess'),
+        );
       }
     });
 

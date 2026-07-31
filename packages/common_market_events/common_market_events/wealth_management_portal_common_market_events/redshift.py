@@ -66,13 +66,30 @@ class RedshiftClient:
         if not self._use_athena:
             return sql
         table_names = [
-            "accounts", "advisors", "articles", "client_income_expense",
-            "client_investment_restrictions", "client_reports", "clients",
-            "compliance", "crawl_log", "documents", "fees", "goals",
-            "holdings", "interactions", "market_data", "performance",
-            "portfolio_config", "portfolios", "recommended_products",
-            "research", "securities", "theme_article_associations",
-            "themes", "transactions",
+            "accounts",
+            "advisors",
+            "articles",
+            "client_income_expense",
+            "client_investment_restrictions",
+            "client_reports",
+            "clients",
+            "compliance",
+            "crawl_log",
+            "documents",
+            "fees",
+            "goals",
+            "holdings",
+            "interactions",
+            "market_data",
+            "performance",
+            "portfolio_config",
+            "portfolios",
+            "recommended_products",
+            "research",
+            "securities",
+            "theme_article_associations",
+            "themes",
+            "transactions",
         ]
         prefix = f'"{self._athena_catalog}"."{self._athena_database}".'
         for table in table_names:
@@ -110,7 +127,7 @@ class RedshiftClient:
                         raise Exception(f"Athena query failed: {reason}")
                     if state == "CANCELLED":
                         raise Exception("Athena query was cancelled")
-                    time.sleep(1)
+                    time.sleep(0.3)
                 else:
                     raise Exception("Athena query timed out")
 

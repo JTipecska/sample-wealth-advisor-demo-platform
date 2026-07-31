@@ -459,7 +459,7 @@ export function AdvisorDashboard() {
                         padding: '8px 12px',
                       }}
                       formatter={(value, name, props: any) => [
-                        `${value} clients (${props.payload.percentage.toFixed(1)}%)`,
+                        `${value} clients (${(props.payload.percentage ?? 0).toFixed(1)}%)`,
                         props.payload.segment,
                       ]}
                     />

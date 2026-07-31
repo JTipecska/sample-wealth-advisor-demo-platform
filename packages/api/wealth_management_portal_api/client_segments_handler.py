@@ -42,4 +42,4 @@ def get_client_segments() -> ClientSegmentsResponse:
         return ClientSegmentsResponse(segments=segments, total_clients=total_clients)
     except Exception:
         logger.warning("Error in get_client_segments", exc_info=True)
-        raise
+        return ClientSegmentsResponse(segments=[], total_clients=0)
