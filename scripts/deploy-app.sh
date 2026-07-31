@@ -22,6 +22,7 @@ zip -r "$ZIP" . \
   --exclude "*.pyc" \
   --exclude "*/dist/*" \
   --exclude "*/.venv/*" \
+  --exclude ".venv/*" \
   --exclude "*/coverage/*" \
   --exclude "*/reports/*" \
   2>&1 | tail -3
