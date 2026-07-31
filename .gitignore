@@ -91,6 +91,12 @@ WEB_CRAWLER_AGENTCORE_MIGRATION.md
 *.tfstate
 *.tfstate.backup
 **/.terraform.lock.hcl
+**/tfplan
+
+# Draw.io temp files
+*.drawio.bkp
+*.drawio.dtmp
+.$*.drawio.*
 
 # Claude Code
 .claude/worktrees

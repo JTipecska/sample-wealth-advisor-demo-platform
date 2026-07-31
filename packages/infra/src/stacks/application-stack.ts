@@ -853,7 +853,7 @@ export class ApplicationStack extends Stack {
         reportAgent.reportBucket.grantReadWrite(integration.handler);
         integration.handler.addEnvironment(
           'REPORT_AGENT_ARN',
-          reportAgent.agentCoreRuntime.runtimeArn,
+          reportAgent.agentCoreRuntime.agentRuntimeArn,
         );
         integration.handler.addEnvironment(
           'REPORT_S3_BUCKET',

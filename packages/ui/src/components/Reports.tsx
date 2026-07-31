@@ -82,7 +82,7 @@ function ReportCell({
             setState('idle');
           }
         })
-        .catch(() => {});
+        .catch(() => undefined);
     }, 3000);
   };
 
