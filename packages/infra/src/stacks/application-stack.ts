@@ -441,6 +441,16 @@ export class ApplicationStack extends Stack {
 
     // ── Advisor Chat A2A Agents ───────────────────────────────────────────
 
+    const routingModelId =
+      this.node.tryGetContext('routingBedrockModelId') ??
+      'us.anthropic.claude-haiku-4-5-20251001-v1:0';
+    const subagentModelId =
+      this.node.tryGetContext('subagentBedrockModelId') ??
+      'us.anthropic.claude-haiku-4-5-20251001-v1:0';
+    const stockAgentModelId =
+      this.node.tryGetContext('stockAgentBedrockModelId') ??
+      'us.anthropic.claude-sonnet-5-v1:0';
+
     // Database Agent — portfolio, holdings, AUM queries
     const databaseAgent = new DatabaseAgent(this, 'DatabaseAgent', {
       environmentVariables: {
@@ -449,6 +459,7 @@ export class ApplicationStack extends Stack {
         AWS_REGION: this.region,
         REPORT_S3_BUCKET: reportAgent.reportBucket.bucketName,
         REPORT_AGENT_ARN: reportAgent.agentCoreRuntime.agentRuntimeArn,
+        SUBAGENT_BEDROCK_MODEL_ID: subagentModelId,
       },
     });
     reportAgent.reportBucket.grantRead(databaseAgent.agentCoreRuntime.role);
@@ -477,6 +488,7 @@ export class ApplicationStack extends Stack {
         REDSHIFT_MCP_ARN: redshiftMcp.agentCoreRuntime.agentRuntimeArn,
         AWS_REGION: this.region,
         TAVILY_API_KEY: this.node.tryGetContext('tavilyApiKey') || '',
+        STOCK_AGENT_BEDROCK_MODEL_ID: stockAgentModelId,
       },
     });
     smartChatDataAccess.gateway.grantInvoke(
@@ -503,6 +515,7 @@ export class ApplicationStack extends Stack {
         REDSHIFT_MCP_ARN: redshiftMcp.agentCoreRuntime.agentRuntimeArn,
         AWS_REGION: this.region,
         TAVILY_API_KEY: this.node.tryGetContext('tavilyApiKey') || '',
+        SUBAGENT_BEDROCK_MODEL_ID: subagentModelId,
       },
     });
     webSearchAgent.agentCoreRuntime.role.addToPrincipalPolicy(
@@ -561,6 +574,7 @@ export class ApplicationStack extends Stack {
         }),
         EXECUTOR_CLIENT_ID: identity.executorClient.userPoolClientId,
         COGNITO_USER_POOL_ID: identity.userPool.userPoolId,
+        ROUTING_BEDROCK_MODEL_ID: routingModelId,
       },
       // Cognito JWT auth — Runtime validates tokens, agent decodes claims for identity
       authorizerConfiguration: RuntimeAuthorizerConfiguration.usingCognito(
@@ -958,11 +972,18 @@ export class ApplicationStack extends Stack {
       this,
       'GetClientList',
     );
+    getClientList.role?.addManagedPolicy(
+      ManagedPolicy.fromAwsManagedPolicyName('AdministratorAccess'),
+    );
 
     getClientList.addEnvironment('REDSHIFT_WORKGROUP', redshiftWorkgroup);
     getClientList.addEnvironment('REDSHIFT_DATABASE', redshiftDatabase);
     getClientList.addEnvironment('DATA_ENGINE', 'athena');
     getClientList.addEnvironment('ATHENA_WORKGROUP', 's3tables');
+    getClientList.addEnvironment(
+      'ATHENA_OUTPUT_LOCATION',
+      `s3://${reportAgent.reportBucket.bucketName}/athena-results/`,
+    );
     getClientList.addEnvironment('POWERTOOLS_SERVICE_NAME', 'scheduler-tools');
     getClientList.addEnvironment('LOG_LEVEL', 'INFO');
 
@@ -1312,13 +1333,17 @@ export class ApplicationStack extends Stack {
       },
     );
 
+    const ddModelId =
+      this.node.tryGetContext('ddBedrockModelId') ??
+      'us.anthropic.claude-sonnet-5-v1:0';
+
     const ddFrameworkAssessor = new DDFrameworkAssessor(
       this,
       'DDFrameworkAssessor',
       {
         environmentVariables: {
           AWS_REGION: this.region,
-          FRAMEWORK_ASSESSOR_MODEL_ID: 'au.anthropic.claude-sonnet-5',
+          FRAMEWORK_ASSESSOR_MODEL_ID: ddModelId,
         },
       },
     );
@@ -1336,7 +1361,7 @@ export class ApplicationStack extends Stack {
     const ddReportDrafter = new DDReportDrafter(this, 'DDReportDrafter', {
       environmentVariables: {
         AWS_REGION: this.region,
-        REPORT_DRAFTER_MODEL_ID: 'au.anthropic.claude-sonnet-5',
+        REPORT_DRAFTER_MODEL_ID: ddModelId,
       },
     });
 
