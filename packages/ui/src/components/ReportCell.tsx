@@ -1,105 +1,64 @@
-import { useEffect, useRef, useState } from 'react';
-import { useRuntimeConfig } from '../hooks/useRuntimeConfig';
-import { useAuth } from 'react-oidc-context';
-import type { Api } from '../generated/api/client.gen';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useApi } from '../hooks/useApi';
 
 interface ReportCellProps {
   clientId: string;
-  api: Api;
   hasReport?: boolean;
 }
 
-export function ReportCell({
-  clientId,
-  api,
-  hasReport = true,
-}: ReportCellProps) {
-  const runtimeConfig = useRuntimeConfig();
-  const auth = useAuth();
-  const apiUrl = runtimeConfig?.apis?.Api ?? '';
-  const token = auth.user?.id_token;
+export function ReportCell({ clientId, hasReport }: ReportCellProps) {
+  const apiOptions = useApi();
+  const queryClient = useQueryClient();
 
-  const [state, setState] = useState<
-    'idle' | 'loading' | 'generating' | 'error'
-  >('idle');
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const reportQuery = useQuery({
+    ...apiOptions.clientReport.queryOptions({ clientId }),
+    retry: false,
+    refetchInterval: (query) =>
+      query.state.data?.status === 'pending' ? 3000 : false,
+  });
 
-  useEffect(
-    () => () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    },
-    [],
-  );
-
-  const handleViewOrGenerate = () => {
-    setState('loading');
-    api
-      .clientReport({ clientId })
-      .then((r) => {
-        if (r.status === 'complete' && r.presignedUrl) {
-          window.open(r.presignedUrl, '_blank');
-          setState('idle');
-        } else {
-          triggerGeneration();
+  const generateMutation = useMutation({
+    ...apiOptions.generateReport.mutationOptions({
+      onSuccess: (data) => {
+        if (data.presignedUrl) {
+          window.open(data.presignedUrl, '_blank');
         }
-      })
-      .catch(() => {
-        triggerGeneration();
-      });
+        queryClient.invalidateQueries(
+          apiOptions.clientReport.queryFilter({ clientId }),
+        );
+        queryClient.invalidateQueries(apiOptions.reportsSummary.queryFilter());
+      },
+    }),
+  });
+
+  const handleClick = () => {
+    const report = reportQuery.data;
+    if (report?.status === 'complete' && report.presignedUrl) {
+      window.open(report.presignedUrl, '_blank');
+    } else {
+      generateMutation.mutate({ clientId });
+    }
   };
 
-  const triggerGeneration = () => {
-    setState('generating');
-    fetch(`${apiUrl.replace(/\/$/, '')}/clients/${clientId}/report/generate`, {
-      method: 'POST',
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    })
-      .then((r) => r.json())
-      .then((result) => {
-        if (result.presigned_url) {
-          window.open(result.presigned_url, '_blank');
-          setState('idle');
-        } else {
-          pollForReport();
-        }
-      })
-      .catch(() => setState('error'));
-  };
+  const isGenerating =
+    generateMutation.isPending || reportQuery.data?.status === 'pending';
+  const isLoading = reportQuery.isLoading;
+  const reportAvailable =
+    hasReport ??
+    (reportQuery.data?.status === 'complete' && !!reportQuery.data?.presignedUrl);
 
-  const pollForReport = () => {
-    let attempts = 0;
-    pollRef.current = setInterval(() => {
-      attempts++;
-      if (attempts > 30) {
-        if (pollRef.current) clearInterval(pollRef.current);
-        setState('error');
-        return;
-      }
-      api
-        .clientReport({ clientId })
-        .then((r) => {
-          if (r.presignedUrl) {
-            if (pollRef.current) clearInterval(pollRef.current);
-            window.open(r.presignedUrl, '_blank');
-            setState('idle');
-          }
-        })
-        .catch(() => undefined);
-    }, 3000);
-  };
-
-  if (state === 'loading')
+  if (isLoading)
     return <span className="text-xs text-gray-400">Checking...</span>;
-  if (state === 'generating')
+  if (isGenerating)
     return (
       <span className="text-xs text-amber-600 animate-pulse">
         Generating...
       </span>
     );
-  if (state === 'error')
+  if (generateMutation.isError)
     return (
       <button
-        onClick={handleViewOrGenerate}
+        onClick={handleClick}
         className="text-xs text-red-500 hover:text-red-700 font-medium"
       >
         Retry
@@ -107,10 +66,10 @@ export function ReportCell({
     );
   return (
     <button
-      onClick={handleViewOrGenerate}
-      className={`text-xs font-medium ${hasReport ? 'text-blue-600 hover:text-blue-700' : 'text-amber-600 hover:text-amber-700'}`}
+      onClick={handleClick}
+      className={`text-xs font-medium ${reportAvailable ? 'text-blue-600 hover:text-blue-700' : 'text-amber-600 hover:text-amber-700'}`}
     >
-      {hasReport ? 'View Report' : 'Generate Report'}
+      {reportAvailable ? 'View Report' : 'Generate Report'}
     </button>
   );
 }

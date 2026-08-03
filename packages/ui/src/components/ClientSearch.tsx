@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from '@tanstack/react-router';
+import { useQuery } from '@tanstack/react-query';
 import { PageLayout, SearchBox } from './PageLayout';
 import { GraphSearchPage } from './GraphSearch';
 import { useApiClient } from '../hooks/useApiClient';
+import { useApi } from '../hooks/useApi';
 import { ReportCell } from './ReportCell';
 
 interface Client {
@@ -24,6 +26,14 @@ type ViewMode = 'list' | 'graph';
 export function ClientSearch() {
   const navigate = useNavigate();
   const api = useApiClient();
+  const apiOptions = useApi();
+  const reportsSummaryQuery = useQuery({
+    ...apiOptions.reportsSummary.queryOptions(),
+    retry: false,
+  });
+  const clientsWithReports = new Set(
+    reportsSummaryQuery.data?.clientsWithReports ?? [],
+  );
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -513,7 +523,7 @@ export function ClientSearch() {
                           {client.interaction_sentiment}
                         </td>
                         <td className="px-4 py-4 text-sm text-center">
-                          <ReportCell clientId={client.client_id} api={api} />
+                          <ReportCell clientId={client.client_id} hasReport={clientsWithReports.has(client.client_id)} />
                         </td>
                         <td className="px-4 py-4 text-sm text-gray-600 max-w-xs truncate">
                           {client.next_best_action || '—'}

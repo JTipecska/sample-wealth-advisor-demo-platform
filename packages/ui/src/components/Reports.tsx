@@ -23,12 +23,17 @@ export function ReportsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([api.clients({ limit: 100 }), api.reportsSummary()])
-      .then(([clientsRes, summaryRes]) => {
-        setClients(clientsRes.clients || []);
-        setClientsWithReports(new Set(summaryRes.clientsWithReports || []));
+    Promise.allSettled([api.clients({ limit: 100 }), api.reportsSummary()])
+      .then(([clientsResult, summaryResult]) => {
+        if (clientsResult.status === 'fulfilled') {
+          setClients(clientsResult.value.clients || []);
+        }
+        if (summaryResult.status === 'fulfilled') {
+          setClientsWithReports(
+            new Set(summaryResult.value.clientsWithReports || []),
+          );
+        }
       })
-      .catch(() => setClients([]))
       .finally(() => setLoading(false));
   }, [api]);
 
@@ -126,7 +131,6 @@ export function ReportsPage() {
                     <ReportCell
                       clientId={c.clientId}
                       hasReport={clientsWithReports.has(c.clientId)}
-                      api={api}
                     />
                   </td>
                   <td className="px-6 py-4 text-gray-500 text-xs max-w-[200px] truncate">

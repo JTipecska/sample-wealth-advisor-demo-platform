@@ -16,6 +16,8 @@ import {
 import { PageLayout, SearchBox } from './PageLayout';
 import { useApiClient } from '../hooks/useApiClient';
 import { useApi } from '../hooks/useApi';
+import { useRuntimeConfig } from '../hooks/useRuntimeConfig';
+import { useAuth } from 'react-oidc-context';
 import { ReportCell } from './ReportCell';
 import { UPCOMING_MEETINGS, ADVISOR_ALERTS } from '../data/seed';
 
@@ -47,6 +49,13 @@ export function AdvisorDashboard() {
   const segmentsQuery = useQuery(apiOptions.clientSegments.queryOptions());
   const summaryQuery = useQuery(apiOptions.dashboardSummary.queryOptions());
   const topClientsQuery = useQuery(apiOptions.topClients.queryOptions());
+  const reportsSummaryQuery = useQuery({
+    ...apiOptions.reportsSummary.queryOptions(),
+    retry: false,
+  });
+  const clientsWithReports = new Set(
+    reportsSummaryQuery.data?.clientsWithReports ?? [],
+  );
 
   const marketThemes = themesQuery.data?.success
     ? (themesQuery.data.themes ?? [])
@@ -95,10 +104,31 @@ export function AdvisorDashboard() {
     setExpandedThemeId(marketThemes[0].themeId);
   }
 
+  const runtimeConfig = useRuntimeConfig();
+  const auth = useAuth();
+  const [themesRefreshing, setThemesRefreshing] = useState(false);
+
   const fetchMarketThemes = () => {
-    queryClient.invalidateQueries(
-      apiOptions.marketThemes.queryFilter({ limit: 6 }),
-    );
+    setThemesRefreshing(true);
+    const baseUrl = runtimeConfig.apis.Api.replace(/\/$/, '');
+    const token = auth.user?.id_token;
+    fetch(`${baseUrl}/market-themes/refresh`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+      .then(() => {
+        setTimeout(() => {
+          queryClient.invalidateQueries(
+            apiOptions.marketThemes.queryFilter({ limit: 6 }),
+          );
+        }, 5000);
+      })
+      .catch(() => {
+        queryClient.invalidateQueries(
+          apiOptions.marketThemes.queryFilter({ limit: 6 }),
+        );
+      })
+      .finally(() => setThemesRefreshing(false));
   };
 
   const metrics: MetricCard[] = [
@@ -450,9 +480,13 @@ export function AdvisorDashboard() {
               </h2>
               <button
                 onClick={fetchMarketThemes}
-                className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                disabled={themesRefreshing}
+                className={`text-sm flex items-center gap-1 ${themesRefreshing ? 'text-gray-400 cursor-not-allowed' : 'text-blue-600 hover:text-blue-800'}`}
               >
-                <span>🔄</span> Refresh
+                <span className={themesRefreshing ? 'animate-spin' : ''}>
+                  🔄
+                </span>{' '}
+                {themesRefreshing ? 'Refreshing...' : 'Refresh'}
               </button>
             </div>
             <div className="min-h-[200px]">
@@ -764,9 +798,10 @@ export function AdvisorDashboard() {
                     </p>
                     <button
                       onClick={fetchMarketThemes}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      disabled={themesRefreshing}
+                      className={`px-4 py-2 rounded-lg transition-colors ${themesRefreshing ? 'bg-gray-400 text-white cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
                     >
-                      Load Themes
+                      {themesRefreshing ? 'Refreshing...' : 'Load Themes'}
                     </button>
                   </div>
                 </div>
@@ -925,7 +960,7 @@ export function AdvisorDashboard() {
                         {client.clientSentiment}
                       </td>
                       <td className="py-3">
-                        <ReportCell clientId={client.clientId} api={api} />
+                        <ReportCell clientId={client.clientId} hasReport={clientsWithReports.has(client.clientId)} />
                       </td>
                       <td className="py-3 text-gray-700 text-xs">
                         &ldquo;{client.nextBestAction}&rdquo;

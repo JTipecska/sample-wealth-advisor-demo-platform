@@ -944,6 +944,15 @@ export class ApplicationStack extends Stack {
         integration.handler.addEnvironment('DATA_ENGINE', 'athena');
         integration.handler.addEnvironment('ATHENA_WORKGROUP', 's3tables');
         integration.handler.addEnvironment(
+          'ATHENA_CATALOG',
+          's3tablescatalog/financial-advisor-s3table',
+        );
+        integration.handler.addEnvironment('ATHENA_DATABASE', 'financial_advisor');
+        integration.handler.addEnvironment(
+          'ATHENA_OUTPUT_LOCATION',
+          `s3://${reportAgent.reportBucket.bucketName}/athena-results/`,
+        );
+        integration.handler.addEnvironment(
           'REDSHIFT_WORKGROUP',
           redshiftWorkgroup,
         );
@@ -980,6 +989,11 @@ export class ApplicationStack extends Stack {
     getClientList.addEnvironment('REDSHIFT_DATABASE', redshiftDatabase);
     getClientList.addEnvironment('DATA_ENGINE', 'athena');
     getClientList.addEnvironment('ATHENA_WORKGROUP', 's3tables');
+    getClientList.addEnvironment(
+      'ATHENA_CATALOG',
+      's3tablescatalog/financial-advisor-s3table',
+    );
+    getClientList.addEnvironment('ATHENA_DATABASE', 'financial_advisor');
     getClientList.addEnvironment(
       'ATHENA_OUTPUT_LOCATION',
       `s3://${reportAgent.reportBucket.bucketName}/athena-results/`,
@@ -1092,6 +1106,11 @@ export class ApplicationStack extends Stack {
     );
     generateGeneralThemes.addEnvironment('LOG_LEVEL', 'INFO');
     generateGeneralThemes.addEnvironment('ATHENA_WORKGROUP', 's3tables');
+    generateGeneralThemes.addEnvironment(
+      'ATHENA_CATALOG',
+      's3tablescatalog/financial-advisor-s3table',
+    );
+    generateGeneralThemes.addEnvironment('ATHENA_DATABASE', 'financial_advisor');
 
     // Grant Lambda permission to invoke Web Crawler MCP
     webCrawlerMcp.agentCoreRuntime.grantInvoke(generateGeneralThemes);
@@ -1190,6 +1209,11 @@ export class ApplicationStack extends Stack {
     );
     generatePortfolioThemes.addEnvironment('LOG_LEVEL', 'INFO');
     generatePortfolioThemes.addEnvironment('ATHENA_WORKGROUP', 's3tables');
+    generatePortfolioThemes.addEnvironment(
+      'ATHENA_CATALOG',
+      's3tablescatalog/financial-advisor-s3table',
+    );
+    generatePortfolioThemes.addEnvironment('ATHENA_DATABASE', 'financial_advisor');
 
     // Grant Lambda permission to invoke Web Crawler MCP
     webCrawlerMcp.agentCoreRuntime.grantInvoke(generatePortfolioThemes);
@@ -1313,6 +1337,17 @@ export class ApplicationStack extends Stack {
       },
     });
 
+    // Grant Core API Lambda permission to start theme generation on demand
+    Object.values(api.integrations).forEach((integration) => {
+      if ('handler' in integration && integration.handler instanceof Function) {
+        integration.handler.addEnvironment(
+          'THEME_STATE_MACHINE_ARN',
+          themeScheduler.stateMachine.stateMachineArn,
+        );
+        themeScheduler.stateMachine.grantStartExecution(integration.handler);
+      }
+    });
+
     // ── Portfolio Due Diligence ───────────────────────────────────────────
 
     // DynamoDB tables for DD sessions and reports
@@ -1353,6 +1388,8 @@ export class ApplicationStack extends Stack {
         AWS_REGION: this.region,
         DATA_ENGINE: 'athena',
         ATHENA_WORKGROUP: 's3tables',
+        ATHENA_CATALOG: 's3tablescatalog/financial-advisor-s3table',
+        ATHENA_DATABASE: 'financial_advisor',
         REDSHIFT_WORKGROUP: redshiftWorkgroup,
         REDSHIFT_DATABASE: redshiftDatabase,
       },

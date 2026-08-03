@@ -2,12 +2,18 @@ import os
 import time
 from typing import Any
 
+import boto3
+from aws_lambda_powertools import Logger
 from pydantic import BaseModel
 from wealth_management_portal_common_market_events.redshift import RedshiftClient
+
+logger = Logger()
 
 # Simple in-memory cache
 _cache: dict[str, tuple[float, Any]] = {}
 CACHE_TTL = 300  # 5 minutes
+
+THEME_STATE_MACHINE_ARN = os.environ.get("THEME_STATE_MACHINE_ARN", "")
 
 
 class ThemeScoreBreakdown(BaseModel):
@@ -99,6 +105,7 @@ def get_market_themes(limit: int = 6) -> MarketThemesResponse:
 
         return response
     except Exception as e:
+        logger.exception("Failed to fetch market themes")
         return MarketThemesResponse(success=False, themes_count=0, themes=[], message=str(e))
 
 
@@ -182,3 +189,32 @@ def get_theme_articles(theme_id: str) -> ThemeArticlesResponse:
             articles=[],
             message=f"Error retrieving articles: {str(e)}",
         )
+
+
+class RefreshThemesResponse(BaseModel):
+    success: bool
+    message: str
+    execution_arn: str | None = None
+
+
+def refresh_market_themes() -> RefreshThemesResponse:
+    """Trigger the theme generation Step Functions state machine."""
+    if not THEME_STATE_MACHINE_ARN:
+        return RefreshThemesResponse(
+            success=False,
+            message="Theme state machine ARN not configured",
+        )
+
+    try:
+        sfn = boto3.client("stepfunctions", region_name=os.environ.get("AWS_REGION", "us-west-2"))
+        response = sfn.start_execution(stateMachineArn=THEME_STATE_MACHINE_ARN)
+        _cache.clear()
+        logger.info("Started theme generation", execution_arn=response["executionArn"])
+        return RefreshThemesResponse(
+            success=True,
+            message="Theme generation started",
+            execution_arn=response["executionArn"],
+        )
+    except Exception as e:
+        logger.exception("Failed to start theme generation")
+        return RefreshThemesResponse(success=False, message=str(e))

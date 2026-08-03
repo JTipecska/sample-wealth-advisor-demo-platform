@@ -33,7 +33,7 @@ from .client_segments_handler import (  # noqa: E402
 )
 from .holdings_handler import HoldingsListResponse, get_client_holdings  # noqa: E402
 from .init import app, lambda_handler, logger, tracer  # noqa: E402
-from .market_themes_handler import MarketThemesResponse, get_market_themes  # noqa: E402
+from .market_themes_handler import MarketThemesResponse, RefreshThemesResponse, get_market_themes, refresh_market_themes  # noqa: E402
 from .portfolio_themes_handler import (  # noqa: E402
     PortfolioThemesResponse,
     get_portfolio_themes as get_portfolio_themes_v2,
@@ -215,6 +215,13 @@ def theme_articles(theme_id: str):
     except Exception as e:
         logger.exception("Error in theme_articles")
         return {"success": False, "error": str(e), "theme_id": theme_id, "articles": []}
+
+
+@app.post("/market-themes/refresh")
+@tracer.capture_method
+def market_themes_refresh() -> RefreshThemesResponse:
+    """Trigger the theme generation batch."""
+    return refresh_market_themes()
 
 
 # --- Client Report ---
