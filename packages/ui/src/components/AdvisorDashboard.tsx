@@ -960,7 +960,10 @@ export function AdvisorDashboard() {
                         {client.clientSentiment}
                       </td>
                       <td className="py-3">
-                        <ReportCell clientId={client.clientId} hasReport={clientsWithReports.has(client.clientId)} />
+                        <ReportCell
+                          clientId={client.clientId}
+                          hasReport={clientsWithReports.has(client.clientId)}
+                        />
                       </td>
                       <td className="py-3 text-gray-700 text-xs">
                         &ldquo;{client.nextBestAction}&rdquo;

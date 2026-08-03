@@ -523,7 +523,12 @@ export function ClientSearch() {
                           {client.interaction_sentiment}
                         </td>
                         <td className="px-4 py-4 text-sm text-center">
-                          <ReportCell clientId={client.client_id} hasReport={clientsWithReports.has(client.client_id)} />
+                          <ReportCell
+                            clientId={client.client_id}
+                            hasReport={clientsWithReports.has(
+                              client.client_id,
+                            )}
+                          />
                         </td>
                         <td className="px-4 py-4 text-sm text-gray-600 max-w-xs truncate">
                           {client.next_best_action || '—'}
