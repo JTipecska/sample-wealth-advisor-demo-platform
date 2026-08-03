@@ -45,7 +45,8 @@ export function ReportCell({ clientId, hasReport }: ReportCellProps) {
   const isLoading = reportQuery.isLoading;
   const reportAvailable =
     hasReport ??
-    (reportQuery.data?.status === 'complete' && !!reportQuery.data?.presignedUrl);
+    (reportQuery.data?.status === 'complete' &&
+      !!reportQuery.data?.presignedUrl);
 
   if (isLoading)
     return <span className="text-xs text-gray-400">Checking...</span>;
