@@ -36,7 +36,7 @@ def extract_performance_data(portfolio_id: str, window_years: int = 3) -> dict:
     import time
 
     use_athena = os.environ.get("DATA_ENGINE", "athena").lower() == "athena"
-    region = os.environ.get("AWS_REGION", "ap-southeast-2")
+    region = os.environ.get("AWS_REGION", "us-west-2")
     profile = os.environ.get("AWS_PROFILE")
     session = boto3.Session(profile_name=profile, region_name=region)
 
@@ -203,7 +203,7 @@ def create_agent() -> Agent:
         name="Quantitative Analyst",
         description="Extracts and calculates performance metrics for DD assessment.",
         model=BedrockModel(
-            model_id=os.environ.get("QUANT_ANALYST_MODEL_ID", "au.anthropic.claude-haiku-4-5-20251001-v1:0")
+            model_id=os.environ.get("QUANT_ANALYST_MODEL_ID", "us.anthropic.claude-haiku-4-5-20251001-v1:0")
         ),
         system_prompt=SYSTEM_PROMPT,
         tools=[extract_performance_data, calculate_metrics],

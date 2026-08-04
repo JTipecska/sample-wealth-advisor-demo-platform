@@ -449,7 +449,7 @@ export class ApplicationStack extends Stack {
       'us.anthropic.claude-haiku-4-5-20251001-v1:0';
     const stockAgentModelId =
       this.node.tryGetContext('stockAgentBedrockModelId') ??
-      'us.anthropic.claude-sonnet-5-v1:0';
+      'us.anthropic.claude-sonnet-5';
 
     // Database Agent — portfolio, holdings, AUM queries
     const databaseAgent = new DatabaseAgent(this, 'DatabaseAgent', {
@@ -1192,6 +1192,12 @@ export class ApplicationStack extends Stack {
         ],
       }),
     );
+    generateGeneralThemes.role?.addToPrincipalPolicy(
+      new PolicyStatement({
+        actions: ['kms:GenerateDataKey', 'kms:Decrypt', 'kms:Encrypt'],
+        resources: [`arn:aws:kms:${this.region}:${this.account}:key/*`],
+      }),
+    );
 
     const generatePortfolioThemes = new ThemeSchedulerGeneratePortfolioThemes(
       this,
@@ -1295,6 +1301,12 @@ export class ApplicationStack extends Stack {
         ],
       }),
     );
+    generatePortfolioThemes.role?.addToPrincipalPolicy(
+      new PolicyStatement({
+        actions: ['kms:GenerateDataKey', 'kms:Decrypt', 'kms:Encrypt'],
+        resources: [`arn:aws:kms:${this.region}:${this.account}:key/*`],
+      }),
+    );
 
     const themeScheduler = new ThemeGeneratorStateMachine(
       this,
@@ -1370,7 +1382,7 @@ export class ApplicationStack extends Stack {
 
     const ddModelId =
       this.node.tryGetContext('ddBedrockModelId') ??
-      'us.anthropic.claude-sonnet-5-v1:0';
+      'us.anthropic.claude-sonnet-5';
 
     const ddFrameworkAssessor = new DDFrameworkAssessor(
       this,

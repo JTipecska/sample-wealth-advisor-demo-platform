@@ -47,7 +47,7 @@ class RedshiftClient:
         """Replace named :param placeholders with literal values for Athena."""
         if not parameters:
             return sql
-        for param in parameters:
+        for param in sorted(parameters, key=lambda p: len(p["name"]), reverse=True):
             name = param["name"]
             value = param["value"]
             safe_value = re.sub(r"[^\w\s\-._:/+]", "", value)
@@ -58,8 +58,12 @@ class RedshiftClient:
         return sql
 
     def _strip_public_schema(self, sql: str) -> str:
-        """Remove 'public.' prefix from table references for Athena (tables live in the catalog database)."""
-        return sql.replace("public.", "")
+        """Remove 'public.' prefix and fix type/format issues for Athena."""
+        sql = sql.replace("public.", "")
+        if self._use_athena:
+            sql = re.sub(r'(?i)\bAS\s+FLOAT\b', 'AS DOUBLE', sql)
+            sql = re.sub(r"'(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})", r"'\1 \2", sql)
+        return sql
 
     @staticmethod
     def _parse_csv_json_list(value) -> list[str]:
@@ -113,7 +117,7 @@ class RedshiftClient:
         prefix = f'"{self._athena_catalog}"."{self._athena_database}".'
         for table in table_names:
             sql = re.sub(
-                rf'(?<![.\w"])(\b{table}\b)(?!\s*\()',
+                rf'(?<![.\w"])(\b{table}\b)(?![.\w])',
                 prefix + f'"{table}"',
                 sql,
             )

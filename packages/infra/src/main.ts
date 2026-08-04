@@ -25,6 +25,10 @@ const envMapping: Record<string, string | undefined> = {
   redshiftDatabase: process.env.REDSHIFT_DATABASE,
   themeBedrockModelId: process.env.THEME_BEDROCK_MODEL_ID,
   ddKnowledgeBaseId: process.env.DD_KNOWLEDGE_BASE_ID,
+  ddBedrockModelId: process.env.DD_BEDROCK_MODEL_ID,
+  routingBedrockModelId: process.env.ROUTING_BEDROCK_MODEL_ID,
+  subagentBedrockModelId: process.env.SUBAGENT_BEDROCK_MODEL_ID,
+  stockAgentBedrockModelId: process.env.STOCK_AGENT_BEDROCK_MODEL_ID,
 };
 
 for (const [key, value] of Object.entries(envMapping)) {

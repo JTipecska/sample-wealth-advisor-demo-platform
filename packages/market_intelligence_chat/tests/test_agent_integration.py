@@ -21,7 +21,7 @@ def test_query_parser_import():
 
     parser = QueryParser()
     assert parser is not None
-    assert parser.model_id == os.environ.get("CLIENT_SEARCH_MODEL_ID", "au.anthropic.claude-sonnet-5-v1:0")
+    assert parser.model_id == os.environ.get("CLIENT_SEARCH_MODEL_ID", "us.anthropic.claude-sonnet-5")
 
 
 def test_agent_tools_import():

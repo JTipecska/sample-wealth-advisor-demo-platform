@@ -43,10 +43,9 @@ export function ReportCell({ clientId, hasReport }: ReportCellProps) {
   const isGenerating =
     generateMutation.isPending || reportQuery.data?.status === 'pending';
   const isLoading = reportQuery.isLoading;
-  const reportAvailable =
-    hasReport ??
-    (reportQuery.data?.status === 'complete' &&
-      !!reportQuery.data?.presignedUrl);
+  const reportAvailable = reportQuery.data
+    ? reportQuery.data.status === 'complete' && !!reportQuery.data.presignedUrl
+    : hasReport ?? false;
 
   if (isLoading)
     return <span className="text-xs text-gray-400">Checking...</span>;

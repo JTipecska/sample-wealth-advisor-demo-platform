@@ -193,9 +193,13 @@ def _get_report_athena(client_id: str) -> ReportStatusResponse:
                 logger.error("Failed to generate presigned URL", error=str(e))
                 raise HTTPException(status_code=500, detail="Failed to generate download URL") from e
 
+    effective_status = report.get("status", "unknown")
+    if effective_status == "complete" and presigned_url is None:
+        effective_status = "file_missing"
+
     return ReportStatusResponse(
         report_id=report.get("report_id"),
-        status=report.get("status", "unknown"),
+        status=effective_status,
         presigned_url=presigned_url,
         next_best_action=report.get("next_best_action"),
     )

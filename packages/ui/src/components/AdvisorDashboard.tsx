@@ -116,19 +116,25 @@ export function AdvisorDashboard() {
       method: 'POST',
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     })
-      .then(() => {
-        setTimeout(() => {
+      .then((res) => res.json())
+      .then((data) => {
+        if (!data.success) {
+          setThemesRefreshing(false);
+          return;
+        }
+        let attempts = 0;
+        const poll = setInterval(() => {
+          attempts++;
           queryClient.invalidateQueries(
             apiOptions.marketThemes.queryFilter({ limit: 6 }),
           );
-        }, 5000);
+          if (attempts >= 12) {
+            clearInterval(poll);
+            setThemesRefreshing(false);
+          }
+        }, 20000);
       })
-      .catch(() => {
-        queryClient.invalidateQueries(
-          apiOptions.marketThemes.queryFilter({ limit: 6 }),
-        );
-      })
-      .finally(() => setThemesRefreshing(false));
+      .catch(() => setThemesRefreshing(false));
   };
 
   const metrics: MetricCard[] = [

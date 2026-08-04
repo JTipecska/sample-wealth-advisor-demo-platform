@@ -18,7 +18,7 @@ def _get_client():
     if _bedrock_agent_runtime is None:
         _bedrock_agent_runtime = boto3.client(
             "bedrock-agent-runtime",
-            region_name=os.environ.get("AWS_REGION", "ap-southeast-2"),
+            region_name=os.environ.get("AWS_REGION", "us-west-2"),
         )
     return _bedrock_agent_runtime
 
