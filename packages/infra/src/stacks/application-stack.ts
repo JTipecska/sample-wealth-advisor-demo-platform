@@ -947,7 +947,10 @@ export class ApplicationStack extends Stack {
           'ATHENA_CATALOG',
           's3tablescatalog/financial-advisor-s3table',
         );
-        integration.handler.addEnvironment('ATHENA_DATABASE', 'financial_advisor');
+        integration.handler.addEnvironment(
+          'ATHENA_DATABASE',
+          'financial_advisor',
+        );
         integration.handler.addEnvironment(
           'ATHENA_OUTPUT_LOCATION',
           `s3://${reportAgent.reportBucket.bucketName}/athena-results/`,
@@ -1110,7 +1113,10 @@ export class ApplicationStack extends Stack {
       'ATHENA_CATALOG',
       's3tablescatalog/financial-advisor-s3table',
     );
-    generateGeneralThemes.addEnvironment('ATHENA_DATABASE', 'financial_advisor');
+    generateGeneralThemes.addEnvironment(
+      'ATHENA_DATABASE',
+      'financial_advisor',
+    );
 
     // Grant Lambda permission to invoke Web Crawler MCP
     webCrawlerMcp.agentCoreRuntime.grantInvoke(generateGeneralThemes);
@@ -1219,7 +1225,10 @@ export class ApplicationStack extends Stack {
       'ATHENA_CATALOG',
       's3tablescatalog/financial-advisor-s3table',
     );
-    generatePortfolioThemes.addEnvironment('ATHENA_DATABASE', 'financial_advisor');
+    generatePortfolioThemes.addEnvironment(
+      'ATHENA_DATABASE',
+      'financial_advisor',
+    );
 
     // Grant Lambda permission to invoke Web Crawler MCP
     webCrawlerMcp.agentCoreRuntime.grantInvoke(generatePortfolioThemes);
