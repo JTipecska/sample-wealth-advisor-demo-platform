@@ -1083,6 +1083,17 @@ export class ApplicationStack extends Stack {
 
     reportAgent.agentCoreRuntime.grantInvoke(generateReport);
 
+    // Grant Core API Lambda permission to invoke report generation async
+    Object.values(api.integrations).forEach((integration) => {
+      if ('handler' in integration && integration.handler instanceof Function) {
+        integration.handler.addEnvironment(
+          'GENERATE_REPORT_LAMBDA_ARN',
+          generateReport.functionArn,
+        );
+        generateReport.grantInvoke(integration.handler);
+      }
+    });
+
     const reportScheduler = new ReportSchedulerStateMachine(
       this,
       'ReportScheduler',

@@ -23,6 +23,10 @@ export function ReportCell({ clientId, hasReport }: ReportCellProps) {
         if (data.presignedUrl) {
           window.open(data.presignedUrl, '_blank');
         }
+        queryClient.setQueryData(
+          apiOptions.clientReport.queryKey({ clientId }),
+          data,
+        );
         queryClient.invalidateQueries(
           apiOptions.clientReport.queryFilter({ clientId }),
         );

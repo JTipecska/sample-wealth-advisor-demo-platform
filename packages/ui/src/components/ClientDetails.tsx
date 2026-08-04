@@ -1,7 +1,10 @@
 import { useParams, useNavigate } from '@tanstack/react-router';
 import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { PageLayout } from './PageLayout';
 import { useApiClient } from '../hooks/useApiClient';
+import { useApi } from '../hooks/useApi';
+import { ReportCell } from './ReportCell';
 import {
   ResponsiveContainer,
   AreaChart,
@@ -62,9 +65,7 @@ export function ClientDetails() {
   const [assetAllocation, setAssetAllocation] = useState<any[]>([]);
   const [allocationLoading, setAllocationLoading] = useState(true);
   const [sectorAllocation, setSectorAllocation] = useState<any[]>([]);
-  const [reportData, setReportData] = useState<{
-    nextBestAction?: string | null;
-  } | null>(null);
+  const apiOptions = useApi();
   const [holdingsSortField, setHoldingsSortField] = useState<string | null>(
     null,
   );
@@ -217,14 +218,13 @@ export function ClientDetails() {
     fetchAllocation();
   }, [clientId, api]);
 
-  // Fetch report data on mount to get the AI-generated Next Best Action
-  useEffect(() => {
-    if (!clientId || !api) return;
-    api
-      .clientReport({ clientId })
-      .then((report) => setReportData(report))
-      .catch((e) => console.error('Failed to fetch report data:', e));
-  }, [clientId, api]);
+  const reportQuery = useQuery({
+    ...apiOptions.clientReport.queryOptions({ clientId: clientId as string }),
+    enabled: !!clientId,
+    retry: false,
+    refetchInterval: (query) =>
+      query.state.data?.status === 'pending' ? 3000 : false,
+  });
 
   const handleHoldingsSort = (field: string) => {
     if (holdingsSortField === field) {
@@ -488,39 +488,8 @@ export function ClientDetails() {
 
               {/* Next Meeting */}
               <div className="bg-white rounded-lg shadow p-4 flex flex-col items-center justify-center text-center hover:shadow-lg hover:scale-105 transition-all duration-200 cursor-pointer">
-                <p className="text-xs text-gray-500 mb-1">Next Meeting</p>
-                <p className="text-sm font-semibold text-gray-900">
-                  Monday, January 20, 2025
-                </p>
-                <button
-                  onClick={async () => {
-                    if (!api || !client) {
-                      console.error('API or client not available', {
-                        api: !!api,
-                        client: !!client,
-                      });
-                      return;
-                    }
-                    try {
-                      const report = await api.clientReport({
-                        clientId: client.id,
-                      });
-                      if (report.status === 'complete' && report.presignedUrl) {
-                        window.open(report.presignedUrl, '_blank');
-                      } else {
-                        alert(`Report status: ${report.status}`);
-                      }
-                    } catch (e) {
-                      console.error('Failed to fetch report:', e);
-                      alert(
-                        'Failed to generate report. Check console for details.',
-                      );
-                    }
-                  }}
-                  className="text-xs text-blue-600 hover:text-blue-700 mt-1 cursor-pointer"
-                >
-                  📋 View customer report
-                </button>
+                <p className="text-xs text-gray-500 mb-1">Client Report</p>
+                {client ? <ReportCell clientId={client.id} /> : null}
                 <p className="text-[10px] text-blue-600 mt-0.5">
                   ✨ AI Generated
                 </p>
@@ -530,7 +499,8 @@ export function ClientDetails() {
               <div className="bg-white rounded-lg shadow p-4 flex flex-col items-center justify-center text-center hover:shadow-lg hover:scale-105 transition-all duration-200 cursor-pointer">
                 <p className="text-xs text-gray-500 mb-1">Next Best Actions</p>
                 <p className="text-xs text-gray-700">
-                  {reportData?.nextBestAction || 'No recommendation available'}
+                  {reportQuery.data?.nextBestAction ||
+                    'No recommendation available'}
                 </p>
               </div>
             </>

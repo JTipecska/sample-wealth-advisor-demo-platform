@@ -3,6 +3,7 @@
 import json
 import os
 import uuid
+from datetime import datetime, timedelta
 
 import boto3
 from aws_lambda_powertools import Logger
@@ -13,6 +14,8 @@ logger = Logger()
 
 REPORT_S3_BUCKET = os.environ.get("REPORT_S3_BUCKET", "")
 REPORT_AGENT_ARN = os.environ.get("REPORT_AGENT_ARN", "")
+GENERATE_REPORT_LAMBDA_ARN = os.environ.get("GENERATE_REPORT_LAMBDA_ARN", "")
+PENDING_TIMEOUT_MINUTES = 5
 
 
 class ReportStatusResponse(BaseModel):
@@ -79,59 +82,52 @@ def get_client_report(client_id: str) -> ReportStatusResponse:
 
 
 def generate_client_report(client_id: str) -> ReportStatusResponse:
-    """Trigger on-demand report generation via the Report Agent."""
+    """Trigger async report generation: insert pending row, invoke Lambda, return immediately."""
     logger.info("Generating report for client", client_id=client_id)
 
-    if not REPORT_AGENT_ARN:
-        logger.warning("REPORT_AGENT_ARN not configured")
+    if not GENERATE_REPORT_LAMBDA_ARN and not REPORT_AGENT_ARN:
+        logger.warning("Neither GENERATE_REPORT_LAMBDA_ARN nor REPORT_AGENT_ARN configured")
         return ReportStatusResponse(
             report_id=None,
             status="error",
             next_best_action="Report generation not configured",
         )
 
+    report_id = f"RPT-{uuid.uuid4().hex[:10].upper()}"
+    is_athena = os.environ.get("DATA_ENGINE", "athena").lower() == "athena"
+
     try:
-        agentcore = boto3.client("bedrock-agentcore")
-        session_id = f"report-{uuid.uuid4().hex}"
+        if is_athena:
+            _insert_pending_report_athena(report_id, client_id)
+        else:
+            _insert_pending_report_redshift(report_id, client_id)
+    except Exception:
+        logger.exception("Failed to write pending report row", client_id=client_id)
 
-        response = agentcore.invoke_agent_runtime(
-            agentRuntimeArn=REPORT_AGENT_ARN,
-            input=json.dumps({"client_id": client_id}),
-            runtimeSessionId=session_id,
-        )
-        result_body = response["response"].read()
-        result = json.loads(result_body)
-
-        report_id = result.get("report_id", f"RPT-{uuid.uuid4().hex[:10].upper()}")
-        s3_path = result.get("s3_path", "")
-        next_best_action = result.get("next_best_action", "")
-
-        if s3_path and os.environ.get("DATA_ENGINE", "athena").lower() == "athena":
-            _save_report_to_athena(report_id, client_id, s3_path, next_best_action)
-
-        presigned_url = None
-        if s3_path and REPORT_S3_BUCKET:
-            s3_client = boto3.client("s3")
-            presigned_url = s3_client.generate_presigned_url(
-                "get_object",
-                Params={"Bucket": REPORT_S3_BUCKET, "Key": s3_path},
-                ExpiresIn=3600,
+    try:
+        if GENERATE_REPORT_LAMBDA_ARN:
+            lambda_client = boto3.client("lambda")
+            lambda_client.invoke(
+                FunctionName=GENERATE_REPORT_LAMBDA_ARN,
+                InvocationType="Event",
+                Payload=json.dumps({"client_id": client_id}).encode(),
             )
-
+        else:
+            lambda_client = boto3.client("lambda")
+            lambda_client.invoke(
+                FunctionName=os.environ.get("AWS_LAMBDA_FUNCTION_NAME", ""),
+                InvocationType="Event",
+                Payload=json.dumps({"_generate_report_sync": True, "client_id": client_id}).encode(),
+            )
+    except Exception as e:
+        logger.exception("Failed to invoke report generation Lambda", client_id=client_id)
         return ReportStatusResponse(
             report_id=report_id,
-            status="complete",
-            presigned_url=presigned_url,
-            next_best_action=next_best_action,
+            status="error",
+            next_best_action=f"Failed to start generation: {str(e)[:100]}",
         )
 
-    except Exception as e:
-        logger.exception("Error generating report", client_id=client_id)
-        return ReportStatusResponse(
-            report_id=None,
-            status="error",
-            next_best_action=f"Generation failed: {str(e)[:100]}",
-        )
+    return ReportStatusResponse(report_id=report_id, status="pending")
 
 
 def _save_report_to_athena(report_id: str, client_id: str, s3_path: str, next_best_action: str):
@@ -150,6 +146,33 @@ def _save_report_to_athena(report_id: str, client_id: str, s3_path: str, next_be
         repo._execute_and_wait(sql)
     except Exception:
         logger.warning("Failed to save report to Athena", exc_info=True)
+
+
+def _insert_pending_report_athena(report_id: str, client_id: str):
+    """Write a pending row before async generation starts."""
+    from wealth_management_portal_portfolio_data_access.repositories.data_api_base_repository import (
+        DataApiBaseRepository,
+    )
+
+    repo = DataApiBaseRepository()
+    sql = f"""
+        INSERT INTO client_reports (report_id, client_id, s3_path, status, generated_date, next_best_action)
+        VALUES ('{report_id}', '{client_id}', '', 'pending', current_timestamp, '')
+    """
+    repo._execute_and_wait(sql)
+
+
+def _insert_pending_report_redshift(report_id: str, client_id: str):
+    """Write a pending row via Redshift before async generation starts."""
+    from wealth_management_portal_portfolio_data_access.engine import iam_connection_factory
+
+    factory = iam_connection_factory()
+    with factory() as conn:
+        conn.execute(
+            "INSERT INTO public.client_reports (report_id, client_id, s3_path, status, generated_date) "
+            "VALUES (%s, %s, '', 'pending', NOW())",
+            (report_id, client_id),
+        )
 
 
 def _get_report_athena(client_id: str) -> ReportStatusResponse:
@@ -197,6 +220,16 @@ def _get_report_athena(client_id: str) -> ReportStatusResponse:
     if effective_status == "complete" and presigned_url is None:
         effective_status = "file_missing"
 
+    if effective_status == "pending":
+        generated_date_str = report.get("generated_date", "")
+        if generated_date_str:
+            try:
+                generated_date = datetime.fromisoformat(str(generated_date_str).replace(" ", "T").split(".")[0])
+                if datetime.now() - generated_date > timedelta(minutes=PENDING_TIMEOUT_MINUTES):
+                    effective_status = "error"
+            except (ValueError, TypeError):
+                pass
+
     return ReportStatusResponse(
         report_id=report.get("report_id"),
         status=effective_status,
@@ -231,9 +264,17 @@ def _get_report_redshift(client_id: str) -> ReportStatusResponse:
             logger.error("Failed to generate presigned URL", report_id=report.report_id, error=str(e))
             raise HTTPException(status_code=500, detail="Failed to generate download URL") from e
 
+    status = report.status
+    if status == "pending" and report.generated_date:
+        try:
+            if datetime.now() - report.generated_date > timedelta(minutes=PENDING_TIMEOUT_MINUTES):
+                status = "error"
+        except (ValueError, TypeError):
+            pass
+
     return ReportStatusResponse(
         report_id=report.report_id,
-        status=report.status,
+        status=status,
         presigned_url=presigned_url,
         next_best_action=report.next_best_action,
     )

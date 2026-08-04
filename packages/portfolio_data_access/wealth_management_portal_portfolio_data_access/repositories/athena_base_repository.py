@@ -81,7 +81,7 @@ class AthenaBaseRepository:
         prefix = f'"{self.catalog}"."{self.database}".'
         for table in table_names:
             sql = re.sub(
-                rf'(?<![.\w"])(\b{table}\b)(?!\s*\()',
+                rf'(?<![.\w"])(\b{table}\b)(?![.\w])',
                 prefix + f'"{table}"',
                 sql,
             )

@@ -1,41 +1,26 @@
-import { useState, useEffect } from 'react';
 import { useNavigate } from '@tanstack/react-router';
+import { useQuery } from '@tanstack/react-query';
 import { PageLayout } from './PageLayout';
-import { useApiClient } from '../hooks/useApiClient';
+import { useApi } from '../hooks/useApi';
 import { ReportCell } from './ReportCell';
-
-interface Client {
-  clientId: string;
-  customerName: string;
-  segment: string;
-  aum: number;
-  ytdPerf: number;
-  nextBestAction?: string | null;
-}
 
 export function ReportsPage() {
   const navigate = useNavigate();
-  const api = useApiClient();
-  const [clients, setClients] = useState<Client[]>([]);
-  const [clientsWithReports, setClientsWithReports] = useState<Set<string>>(
-    new Set(),
-  );
-  const [loading, setLoading] = useState(true);
+  const apiOptions = useApi();
 
-  useEffect(() => {
-    Promise.allSettled([api.clients({ limit: 100 }), api.reportsSummary()])
-      .then(([clientsResult, summaryResult]) => {
-        if (clientsResult.status === 'fulfilled') {
-          setClients(clientsResult.value.clients || []);
-        }
-        if (summaryResult.status === 'fulfilled') {
-          setClientsWithReports(
-            new Set(summaryResult.value.clientsWithReports || []),
-          );
-        }
-      })
-      .finally(() => setLoading(false));
-  }, [api]);
+  const clientsQuery = useQuery(
+    apiOptions.clients.queryOptions({ limit: 100 }),
+  );
+  const reportsSummaryQuery = useQuery({
+    ...apiOptions.reportsSummary.queryOptions(),
+    retry: false,
+  });
+
+  const clients = clientsQuery.data?.clients ?? [];
+  const clientsWithReports = new Set(
+    reportsSummaryQuery.data?.clientsWithReports ?? [],
+  );
+  const loading = clientsQuery.isLoading;
 
   const totalClients = clients.length;
   const reportsAvailable = clientsWithReports.size;
