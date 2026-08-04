@@ -525,9 +525,7 @@ export function ClientSearch() {
                         <td className="px-4 py-4 text-sm text-center">
                           <ReportCell
                             clientId={client.client_id}
-                            hasReport={clientsWithReports.has(
-                              client.client_id,
-                            )}
+                            hasReport={clientsWithReports.has(client.client_id)}
                           />
                         </td>
                         <td className="px-4 py-4 text-sm text-gray-600 max-w-xs truncate">

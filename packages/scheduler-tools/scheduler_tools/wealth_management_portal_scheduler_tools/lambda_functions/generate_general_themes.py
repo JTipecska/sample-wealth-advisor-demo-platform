@@ -44,7 +44,7 @@ def _crawl_articles_via_mcp(mcp_arn: str) -> dict:
 def _generate_themes_locally(hours: int, limit: int) -> dict:
     """Generate themes using RedshiftClient + Bedrock directly in-Lambda."""
     from botocore.config import Config as BotoConfig
-    from wealth_management_portal_common_market_events.models import Article, Theme, ThemeArticleAssociation
+    from wealth_management_portal_common_market_events.models import Theme, ThemeArticleAssociation
 
     workgroup = os.environ.get("REDSHIFT_WORKGROUP", "financial-advisor-wg")
     database = os.environ.get("REDSHIFT_DATABASE", "financial-advisor-db")
@@ -126,7 +126,7 @@ Articles:
 {articles_text}
 
 Return JSON array:
-[{{"title": "...", "sentiment": "bullish|bearish|neutral", "summary": "2-3 sentence summary", "article_indices": [1,2,3...]}}]"""
+[{{"title": "...", "sentiment": "bullish|bearish|neutral", "summary": "...", "article_indices": [1,2,3...]}}]"""
 
     bedrock = boto3.client("bedrock-runtime", config=BotoConfig(region_name=region, retries={"max_attempts": 3}))
     response = bedrock.converse(
@@ -147,7 +147,6 @@ Return JSON array:
     logger.info("Bedrock identified %d themes", len(themes_data))
 
     # 3. Score, rank, and save themes
-    import hashlib
     import uuid
 
     now = datetime.now()
@@ -188,10 +187,10 @@ Return JSON array:
                             client_id="__GENERAL__",
                             created_at=now,
                         )
-                        try:
+                        import contextlib
+
+                        with contextlib.suppress(Exception):
                             client.insert_theme_article_association(assoc)
-                        except Exception:
-                            pass
         except Exception as e:
             logger.warning("Failed to save theme %s: %s", theme_id, str(e))
 
