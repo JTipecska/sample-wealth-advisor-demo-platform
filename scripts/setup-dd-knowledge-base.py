@@ -18,7 +18,7 @@ from pathlib import Path
 
 import boto3
 
-REGION = os.environ.get("AWS_REGION", "ap-southeast-2")
+REGION = os.environ.get("AWS_REGION", "us-west-2")
 ACCOUNT = boto3.client("sts", region_name=REGION).get_caller_identity()["Account"]
 
 SCRIPT_DIR = Path(__file__).parent
@@ -204,7 +204,6 @@ def create_or_get_kb(role_arn: str) -> str:
                 "embeddingModelArn": f"arn:aws:bedrock:{REGION}::foundation-model/amazon.titan-embed-text-v2:0",
             },
         },
-        storageConfiguration={"type": "OPENSEARCH_SERVERLESS"},
     )
     kb_id = kb_response["knowledgeBase"]["knowledgeBaseId"]
     print(f"   Created KB: {kb_id}")
@@ -255,7 +254,7 @@ def save_kb_id_to_ssm(kb_id: str):
 def main():
     parser = argparse.ArgumentParser(description="Setup Portfolio DD Knowledge Base")
     parser.add_argument("--bucket", help="S3 bucket name (overrides CloudFormation lookup)")
-    parser.add_argument("--stack", default="wealth-management-portal-app", help="CloudFormation stack name")
+    parser.add_argument("--stack", default="wealth-management-portal-infra-uswest2-Application", help="CloudFormation stack name")
     args = parser.parse_args()
 
     print("=" * 60)
