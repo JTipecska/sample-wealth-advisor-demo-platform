@@ -61,7 +61,7 @@ class RedshiftClient:
         """Remove 'public.' prefix and fix type/format issues for Athena."""
         sql = sql.replace("public.", "")
         if self._use_athena:
-            sql = re.sub(r'(?i)\bAS\s+FLOAT\b', 'AS DOUBLE', sql)
+            sql = re.sub(r"(?i)\bAS\s+FLOAT\b", "AS DOUBLE", sql)
             sql = re.sub(r"'(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})", r"'\1 \2", sql)
         return sql
 
