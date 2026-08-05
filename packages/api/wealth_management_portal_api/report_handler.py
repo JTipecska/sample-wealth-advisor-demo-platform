@@ -50,9 +50,12 @@ def _get_reports_summary_athena() -> ReportsSummaryResponse:
 
     repo = DataApiBaseRepository()
     sql = """
-        SELECT DISTINCT client_id
-        FROM client_reports
-        WHERE status = 'complete' AND s3_path IS NOT NULL AND s3_path != ''
+        SELECT client_id FROM (
+            SELECT client_id, status, s3_path,
+                   ROW_NUMBER() OVER (PARTITION BY client_id ORDER BY generated_date DESC) AS rn
+            FROM client_reports
+        ) latest
+        WHERE rn = 1 AND status = 'complete' AND s3_path IS NOT NULL AND s3_path != ''
     """
     results = repo._execute_and_wait(sql)
     client_ids = [r["client_id"] for r in results] if results else []
@@ -65,7 +68,12 @@ def _get_reports_summary_redshift() -> ReportsSummaryResponse:
     factory = iam_connection_factory()
     with factory() as conn:
         cursor = conn.execute(
-            "SELECT DISTINCT client_id FROM public.client_reports WHERE status = 'complete' AND s3_path IS NOT NULL"
+            """SELECT client_id FROM (
+                SELECT client_id, status, s3_path,
+                       ROW_NUMBER() OVER (PARTITION BY client_id ORDER BY generated_date DESC) AS rn
+                FROM public.client_reports
+            ) latest
+            WHERE rn = 1 AND status = 'complete' AND s3_path IS NOT NULL"""
         )
         client_ids = [row[0] for row in cursor.fetchall()]
     return ReportsSummaryResponse(clients_with_reports=client_ids)
@@ -148,6 +156,22 @@ def _save_report_to_athena(report_id: str, client_id: str, s3_path: str, next_be
         logger.warning("Failed to save report to Athena", exc_info=True)
 
 
+def _update_status_athena(report_id: str, new_status: str):
+    """Update an existing report row's status in the DB (best-effort, non-blocking)."""
+    if not report_id:
+        return
+    try:
+        from wealth_management_portal_portfolio_data_access.repositories.data_api_base_repository import (
+            DataApiBaseRepository,
+        )
+
+        repo = DataApiBaseRepository()
+        sql = f"UPDATE client_reports SET status = '{new_status}' WHERE report_id = '{report_id}'"
+        repo._execute_and_wait(sql)
+    except Exception:
+        logger.debug("Failed to update report status", report_id=report_id, exc_info=True)
+
+
 def _insert_pending_report_athena(report_id: str, client_id: str):
     """Write a pending row before async generation starts."""
     from wealth_management_portal_portfolio_data_access.repositories.data_api_base_repository import (
@@ -219,6 +243,7 @@ def _get_report_athena(client_id: str) -> ReportStatusResponse:
     effective_status = report.get("status", "unknown")
     if effective_status == "complete" and presigned_url is None:
         effective_status = "file_missing"
+        _update_status_athena(report.get("report_id", ""), "file_missing")
 
     if effective_status == "pending":
         generated_date_str = report.get("generated_date", "")
@@ -227,6 +252,7 @@ def _get_report_athena(client_id: str) -> ReportStatusResponse:
                 generated_date = datetime.fromisoformat(str(generated_date_str).replace(" ", "T").split(".")[0])
                 if datetime.now() - generated_date > timedelta(minutes=PENDING_TIMEOUT_MINUTES):
                     effective_status = "error"
+                    _update_status_athena(report.get("report_id", ""), "error")
             except (ValueError, TypeError):
                 pass
 
