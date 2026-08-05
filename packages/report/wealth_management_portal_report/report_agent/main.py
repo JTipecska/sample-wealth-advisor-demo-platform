@@ -26,6 +26,8 @@ class InvokeInput(BaseModel):
 async def invoke(input: InvokeInput) -> dict:
     """Entry point for synchronous report generation"""
     t_start = time.time()
+    import sys
+    print(f"[REPORT-AGENT] /invocations called: client_id={input.client_id}", file=sys.stderr, flush=True)
     try:
         logger.info("Request received: client_id=%s", input.client_id)
 
@@ -106,4 +108,4 @@ def ping() -> str:
 
 
 if __name__ == "__main__":
-    uvicorn.run("wealth_management_portal_report.report_agent.main:app", port=8080)
+    uvicorn.run("wealth_management_portal_report.report_agent.main:app", host="0.0.0.0", port=8080)

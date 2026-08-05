@@ -40,7 +40,6 @@ def _invoke_report_agent(agent_arn: str, client_id: str) -> dict:
     response = client.invoke_agent_runtime(
         agentRuntimeArn=agent_arn,
         runtimeSessionId=session_id,
-        qualifier="DEFAULT",
         payload=payload,
     )
     return json.loads(response["response"].read())
