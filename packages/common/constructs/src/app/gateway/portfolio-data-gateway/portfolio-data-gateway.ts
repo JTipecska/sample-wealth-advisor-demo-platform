@@ -121,6 +121,7 @@ export class PortfolioDataGateway extends Construct {
 
     // Lambda function
     const environmentVariables = {
+      DATA_ENGINE: 'redshift',
       REDSHIFT_WORKGROUP: redshiftWorkgroup,
       REDSHIFT_DATABASE: redshiftDatabase,
       REDSHIFT_REGION: Stack.of(this).region,
@@ -141,7 +142,7 @@ export class PortfolioDataGateway extends Construct {
           ),
         ),
       ),
-      timeout: Duration.seconds(180),
+      timeout: Duration.seconds(300),
       memorySize: 512,
       tracing: Tracing.ACTIVE,
       environment: environmentVariables,

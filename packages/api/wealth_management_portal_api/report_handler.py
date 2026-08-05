@@ -15,7 +15,7 @@ logger = Logger()
 REPORT_S3_BUCKET = os.environ.get("REPORT_S3_BUCKET", "")
 REPORT_AGENT_ARN = os.environ.get("REPORT_AGENT_ARN", "")
 GENERATE_REPORT_LAMBDA_ARN = os.environ.get("GENERATE_REPORT_LAMBDA_ARN", "")
-PENDING_TIMEOUT_MINUTES = 5
+PENDING_TIMEOUT_MINUTES = 3
 
 
 class ReportStatusResponse(BaseModel):
