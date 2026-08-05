@@ -115,7 +115,9 @@ export class PortfolioDataGateway extends Construct {
 
     // Lambda function
     const environmentVariables = {
-      DATA_ENGINE: 'redshift',
+      DATA_ENGINE: 'athena',
+      ATHENA_CATALOG: 's3tablescatalog/financial-advisor-s3table',
+      ATHENA_DATABASE: 'financial_advisor',
       REDSHIFT_WORKGROUP: redshiftWorkgroup,
       REDSHIFT_DATABASE: redshiftDatabase,
       REDSHIFT_REGION: Stack.of(this).region,
