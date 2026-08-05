@@ -96,28 +96,22 @@ export class PortfolioDataGateway extends Construct {
       'Portfolio Gateway Lambda access',
     );
 
-    // VPC Endpoints — VPC-level resources, created only by the primary (sandbox) stage.
-    // Other stages sharing the same VPC reuse the existing ones.
-    const stageName = this.node.tryGetContext('stageName') ?? 'sandbox';
-    if (stageName === 'sandbox') {
-      new InterfaceVpcEndpoint(this, 'StsEndpoint', {
-        vpc,
-        service: InterfaceVpcEndpointAwsService.STS,
-        subnets: { subnets: privateSubnets },
-        securityGroups: [this.vpcEndpointSecurityGroup],
-        privateDnsEnabled: true,
-      });
+    // VPC Endpoints for Redshift Data API access from within VPC
+    new InterfaceVpcEndpoint(this, 'StsEndpoint', {
+      vpc,
+      service: InterfaceVpcEndpointAwsService.STS,
+      subnets: { subnets: privateSubnets },
+      securityGroups: [this.vpcEndpointSecurityGroup],
+      privateDnsEnabled: true,
+    });
 
-      new InterfaceVpcEndpoint(this, 'RedshiftServerlessEndpoint', {
-        vpc,
-        service: new InterfaceVpcEndpointAwsService('redshift-serverless'),
-        subnets: { subnets: privateSubnets },
-        securityGroups: [this.vpcEndpointSecurityGroup],
-        privateDnsEnabled: true,
-      });
-
-      // Note: CloudWatch Logs interface endpoint already created by the data-platform stack (Phase 1).
-    }
+    new InterfaceVpcEndpoint(this, 'RedshiftServerlessEndpoint', {
+      vpc,
+      service: new InterfaceVpcEndpointAwsService('redshift-serverless'),
+      subnets: { subnets: privateSubnets },
+      securityGroups: [this.vpcEndpointSecurityGroup],
+      privateDnsEnabled: true,
+    });
 
     // Lambda function
     const environmentVariables = {
