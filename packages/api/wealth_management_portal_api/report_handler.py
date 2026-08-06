@@ -55,7 +55,7 @@ def _get_reports_summary_athena() -> ReportsSummaryResponse:
                    ROW_NUMBER() OVER (PARTITION BY client_id ORDER BY generated_date DESC) AS rn
             FROM client_reports
         ) latest
-        WHERE rn = 1 AND status = 'complete' AND s3_path IS NOT NULL AND s3_path != ''
+        WHERE rn = 1 AND status = 'complete' AND s3_path LIKE 'reports/%'
     """
     results = repo._execute_and_wait(sql)
     client_ids = [r["client_id"] for r in results] if results else []
@@ -73,7 +73,7 @@ def _get_reports_summary_redshift() -> ReportsSummaryResponse:
                        ROW_NUMBER() OVER (PARTITION BY client_id ORDER BY generated_date DESC) AS rn
                 FROM public.client_reports
             ) latest
-            WHERE rn = 1 AND status = 'complete' AND s3_path IS NOT NULL"""
+            WHERE rn = 1 AND status = 'complete' AND s3_path LIKE 'reports/%'"""
         )
         client_ids = [row[0] for row in cursor.fetchall()]
     return ReportsSummaryResponse(clients_with_reports=client_ids)
@@ -242,8 +242,10 @@ def _get_report_athena(client_id: str) -> ReportStatusResponse:
 
     effective_status = report.get("status", "unknown")
     if effective_status == "complete" and presigned_url is None:
+        # Report-only, never persisted: a missing S3 object is not proof the row is bad
+        # (wrong/rotated bucket looks identical). Writing it back rewrote seed rows on
+        # every page view, and Iceberg compaction then made the deletes permanent.
         effective_status = "file_missing"
-        _update_status_athena(report.get("report_id", ""), "file_missing")
 
     if effective_status == "pending":
         generated_date_str = report.get("generated_date", "")

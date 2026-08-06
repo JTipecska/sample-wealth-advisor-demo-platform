@@ -769,7 +769,7 @@ destroy-athena:
 
 #################### Financial Advisor ####################
 
-FINANCIAL_ADVISOR_TABLES = clients advisors accounts portfolios securities transactions holdings market_data performance fees goals interactions documents compliance research articles client_income_expense client_investment_restrictions crawl_log portfolio_config recommended_products theme_article_associations themes
+FINANCIAL_ADVISOR_TABLES = clients advisors accounts portfolios securities transactions holdings market_data performance fees goals interactions documents compliance research articles client_income_expense client_investment_restrictions client_reports crawl_log portfolio_config recommended_products theme_article_associations themes
 
 deploy-financial-advisor-s3-glue-s3:
 	@echo "Deploying Financial Advisor Infrastructure"
@@ -801,7 +801,7 @@ start-financial-advisor-glue-jobs:
 	done
 	@echo "Started All Financial Advisor Glue Jobs"
 
-REDSHIFT_TABLES = articles theme_article_associations themes
+REDSHIFT_TABLES = articles client_reports theme_article_associations themes
 DATA_BUCKET = $(AWS_ACCOUNT_ID)-$(APP_NAME)-$(ENV_NAME)-$(AWS_PRIMARY_REGION)-financial-advisor-s3-glue-s3-data
 REDSHIFT_COPY_ROLE := $(shell aws ssm get-parameter --name /$(APP_NAME)/$(ENV_NAME)/sagemaker/producer/role --query "Parameter.Value" --output text --region $(AWS_PRIMARY_REGION) 2>/dev/null)
 
