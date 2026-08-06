@@ -68,12 +68,32 @@ export function ReportCell({ clientId, hasReport }: ReportCellProps) {
         Retry
       </button>
     );
+  if (reportAvailable) {
+    return (
+      <span className="flex items-center gap-2">
+        <button
+          onClick={() => window.open(reportQuery.data!.presignedUrl!, '_blank')}
+          className="text-xs font-medium text-blue-600 hover:text-blue-700"
+        >
+          View Report
+        </button>
+        <button
+          onClick={() => generateMutation.mutate({ clientId })}
+          className="text-xs text-gray-400 hover:text-amber-600"
+          title="Regenerate report"
+        >
+          ↻
+        </button>
+      </span>
+    );
+  }
+
   return (
     <button
       onClick={handleClick}
-      className={`text-xs font-medium ${reportAvailable ? 'text-blue-600 hover:text-blue-700' : 'text-amber-600 hover:text-amber-700'}`}
+      className="text-xs font-medium text-amber-600 hover:text-amber-700"
     >
-      {reportAvailable ? 'View Report' : 'Generate Report'}
+      Generate Report
     </button>
   );
 }
