@@ -437,8 +437,8 @@ class RedshiftClient:
         if hours:
             from datetime import datetime, timedelta
 
-            cutoff = (datetime.now() - timedelta(hours=hours)).isoformat()
-            sql += " AND generated_at >= :cutoff"
+            cutoff = (datetime.now() - timedelta(hours=hours)).strftime("%Y-%m-%d %H:%M:%S")
+            sql += " AND generated_at >= TIMESTAMP :cutoff"
             parameters.append({"name": "cutoff", "value": cutoff})
 
         sql += f" ORDER BY ticker, combined_score DESC LIMIT {int(limit)}"
