@@ -330,7 +330,7 @@ export class ApplicationStack extends Stack {
     }
 
     // Report agent — granted permission to invoke the portfolio gateway
-    const reportAgent = new ReportAgent(this, 'ReportAgentV3', {
+    const reportAgent = new ReportAgent(this, 'ReportAgent', {
       environmentVariables: {
         PORTFOLIO_GATEWAY_URL: portfolioGateway.gateway.gatewayUrl!,
         AWS_REGION: this.region,

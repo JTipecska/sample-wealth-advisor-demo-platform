@@ -1,4 +1,4 @@
-import { Lazy, Names, RemovalPolicy } from 'aws-cdk-lib';
+import { CfnResource, Lazy, Names, RemovalPolicy } from 'aws-cdk-lib';
 import { Platform } from 'aws-cdk-lib/aws-ecr-assets';
 import {
   Bucket,
@@ -89,6 +89,10 @@ export class ReportAgent extends Construct {
         DEPLOY_VERSION: '2',
       },
     });
+
+    // Force new logical ID to replace orphaned CFN resource
+    const cfnRuntime = this.agentCoreRuntime.node.defaultChild as CfnResource;
+    cfnRuntime.overrideLogicalId('ReportAgentRuntimeV6');
 
     this.reportBucket.grantPut(this.agentCoreRuntime.role);
   }

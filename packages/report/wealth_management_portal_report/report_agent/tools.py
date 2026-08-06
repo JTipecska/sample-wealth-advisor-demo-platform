@@ -118,7 +118,7 @@ def _get_mcp_client() -> MCPClient:
         credentials = boto3.Session().get_credentials().get_frozen_credentials()
         region = os.getenv("AWS_REGION", "us-east-1")
         auth = SigV4HTTPXAuth(credentials, region)
-        return MCPClient(lambda: streamablehttp_client(gateway_url, auth=auth, timeout=120, terminate_on_close=False))
+        return MCPClient(lambda: streamablehttp_client(gateway_url, auth=auth, timeout=300, terminate_on_close=False))
     else:
         raise ValueError("PORTFOLIO_GATEWAY_URL environment variable is required")
 
