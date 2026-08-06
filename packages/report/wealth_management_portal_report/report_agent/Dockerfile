@@ -22,6 +22,4 @@ EXPOSE 8080
 
 ENV PYTHONPATH=/app
 
-# Auto-instrument with AWS Distro for OpenTelemetry
-# https://aws-otel.github.io/docs/getting-started/python-sdk/auto-instr
-CMD ["python", "bin/opentelemetry-instrument", "python", "-m", "wealth_management_portal_report.report_agent.main"]
+CMD ["python", "-m", "wealth_management_portal_report.report_agent.main"]

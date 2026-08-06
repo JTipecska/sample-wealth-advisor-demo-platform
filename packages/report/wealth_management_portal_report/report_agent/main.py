@@ -10,8 +10,6 @@ from bedrock_agentcore.runtime.models import PingStatus
 from fastapi import HTTPException
 from pydantic import BaseModel
 
-from ..pdf import html_to_pdf, markdown_to_html
-from .agent import assemble_markdown, invoke_narrative_generator
 from .init import app
 from .tools import _get_mcp_client, fetch_report_data, generate_next_best_action, save_report_via_mcp
 
@@ -52,7 +50,9 @@ async def invoke(input: InvokeInput) -> dict:
             except Exception:
                 logger.exception("NBA generation failed; continuing without NBA")
 
-            # Generate narratives via Bedrock Converse tool use
+            # Generate narratives via Bedrock Converse tool use (lazy imports to avoid slow startup)
+            from .agent import assemble_markdown, invoke_narrative_generator
+
             logger.info("Narrative generation started")
             narratives = invoke_narrative_generator(report_data.components)
             logger.info("Narrative generation completed: sections=%d", len(narratives))
@@ -60,7 +60,9 @@ async def invoke(input: InvokeInput) -> dict:
             markdown = assemble_markdown(report_data.components["deterministic_sections"], narratives)
             logger.info("Markdown assembled: length=%d", len(markdown))
 
-            # Convert markdown to PDF
+            # Convert markdown to PDF (lazy import — WeasyPrint is heavy)
+            from ..pdf import html_to_pdf, markdown_to_html
+
             logger.info("PDF generation started")
             html = markdown_to_html(markdown, report_data.components["chart_svgs"])
             pdf_bytes = html_to_pdf(html)

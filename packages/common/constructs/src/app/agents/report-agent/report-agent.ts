@@ -86,6 +86,7 @@ export class ReportAgent extends Construct {
         REPORT_BEDROCK_MODEL_ID: this.node.tryGetContext(
           'reportBedrockModelId',
         ),
+        DEPLOY_VERSION: '2',
       },
     });
 
