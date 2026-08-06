@@ -118,11 +118,16 @@ def build_client_profile(
     else:
         activity_level = ActivityLevel.LOW
 
+    first_name = get_value(client, "first_name") or get_value(client, "client_first_name") or ""
+    last_name = get_value(client, "last_name") or get_value(client, "client_last_name") or ""
+    client_name = get_value(client, "customer_name") or f"{first_name} {last_name}".strip() or "Unknown"
+    client_since = get_date_value(client, "created_date") or get_date_value(client, "client_since") or date.today()
+
     return ClientProfile(
         client_id=get_value(client, "client_id"),
-        names=[f"{get_value(client, 'client_first_name')} {get_value(client, 'client_last_name')}"],
+        names=[client_name],
         dates_of_birth=[get_date_value(client, "date_of_birth")] if get_date_value(client, "date_of_birth") else [],
-        client_since=get_date_value(client, "client_since") or date.today(),
+        client_since=client_since,
         aum=aum,
         risk_profile=(
             RiskProfile(get_value(client, "risk_tolerance"))
