@@ -140,19 +140,31 @@ def _fetch_data_athena(client_id: str) -> dict:
 
     holdings = repo._execute_and_wait(
         "SELECT h.*, s.security_name, s.asset_class, s.sector, s.currency "
-        "FROM holdings h LEFT JOIN securities s ON h.security_id = s.security_id "
-        "WHERE h.client_id = :client_id",
+        "FROM holdings AS h "
+        "JOIN portfolios AS p ON h.portfolio_id = p.portfolio_id "
+        "JOIN accounts AS a ON p.account_id = a.account_id "
+        "LEFT JOIN securities AS s ON h.security_id = s.security_id "
+        "WHERE a.client_id = :client_id",
         params,
     )
     performance = repo._execute_and_wait(
-        "SELECT * FROM performance WHERE client_id = :client_id", params
+        "SELECT pf.* FROM performance AS pf "
+        "JOIN portfolios AS p ON pf.portfolio_id = p.portfolio_id "
+        "JOIN accounts AS a ON p.account_id = a.account_id "
+        "WHERE a.client_id = :client_id",
+        params,
     )
     transactions = repo._execute_and_wait(
-        "SELECT * FROM transactions WHERE client_id = :client_id ORDER BY transaction_date DESC LIMIT 50",
+        "SELECT t.* FROM transactions AS t "
+        "JOIN accounts AS a ON t.account_id = a.account_id "
+        "WHERE a.client_id = :client_id ORDER BY t.transaction_date DESC LIMIT 50",
         params,
     )
     portfolios = repo._execute_and_wait(
-        "SELECT * FROM portfolios WHERE client_id = :client_id", params
+        "SELECT p.* FROM portfolios AS p "
+        "JOIN accounts AS a ON p.account_id = a.account_id "
+        "WHERE a.client_id = :client_id",
+        params,
     )
     interactions = repo._execute_and_wait(
         "SELECT * FROM interactions WHERE client_id = :client_id ORDER BY interaction_date DESC LIMIT 50",
