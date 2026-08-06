@@ -139,7 +139,7 @@ def _fetch_data_athena(client_id: str) -> dict:
         return {"error": f"Client '{client_id}' not found"}
 
     holdings = repo._execute_and_wait(
-        "SELECT h.*, s.security_name, s.asset_class, s.sector, s.currency "
+        "SELECT h.*, s.security_name, s.asset_class, s.sector, s.ticker "
         "FROM holdings AS h "
         "JOIN portfolios AS p ON h.portfolio_id = p.portfolio_id "
         "JOIN accounts AS a ON p.account_id = a.account_id "
