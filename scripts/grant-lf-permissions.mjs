@@ -25,6 +25,7 @@ const ROLE_PATTERNS = [
   'GeneratePortfolioThemesSe',
   'IntelligenceApiRouterHand',
   'DDQuantAnalystExecutionRo',
+  'ReportAgentExecutionRole',
   // Redshift namespace role (created by DataZone/SageMaker environment blueprint)
   'datazone_usr_role',
 ];

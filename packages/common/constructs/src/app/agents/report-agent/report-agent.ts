@@ -86,7 +86,10 @@ export class ReportAgent extends Construct {
         REPORT_BEDROCK_MODEL_ID: this.node.tryGetContext(
           'reportBedrockModelId',
         ),
-        DEPLOY_VERSION: '2',
+        DATA_ENGINE: 'athena',
+        ATHENA_CATALOG: 's3tablescatalog/financial-advisor-s3table',
+        ATHENA_DATABASE: 'financial_advisor',
+        ATHENA_WORKGROUP: 's3tables',
       },
     });
 
