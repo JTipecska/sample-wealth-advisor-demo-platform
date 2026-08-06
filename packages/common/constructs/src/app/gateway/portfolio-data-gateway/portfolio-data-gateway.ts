@@ -118,6 +118,7 @@ export class PortfolioDataGateway extends Construct {
       DATA_ENGINE: 'athena',
       ATHENA_CATALOG: 's3tablescatalog/financial-advisor-s3table',
       ATHENA_DATABASE: 'financial_advisor',
+      ATHENA_WORKGROUP: 's3tables',
       REDSHIFT_WORKGROUP: redshiftWorkgroup,
       REDSHIFT_DATABASE: redshiftDatabase,
       REDSHIFT_REGION: Stack.of(this).region,
