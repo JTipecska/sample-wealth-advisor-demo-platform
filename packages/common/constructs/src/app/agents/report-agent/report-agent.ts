@@ -1,4 +1,4 @@
-import { CfnResource, Lazy, Names, RemovalPolicy } from 'aws-cdk-lib';
+import { Lazy, Names, RemovalPolicy } from 'aws-cdk-lib';
 import { Platform } from 'aws-cdk-lib/aws-ecr-assets';
 import {
   Bucket,
@@ -92,10 +92,6 @@ export class ReportAgent extends Construct {
         ATHENA_WORKGROUP: 's3tables',
       },
     });
-
-    // Force new logical ID to replace orphaned CFN resource
-    const cfnRuntime = this.agentCoreRuntime.node.defaultChild as CfnResource;
-    cfnRuntime.overrideLogicalId('ReportAgentRuntimeV6');
 
     this.reportBucket.grantPut(this.agentCoreRuntime.role);
   }
