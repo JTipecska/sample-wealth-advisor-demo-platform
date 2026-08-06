@@ -62,8 +62,16 @@ export const OPERATION_DETAILS = {
     path: '/market-themes',
     method: 'GET',
   },
+  marketThemesRefresh: {
+    path: '/market-themes/refresh',
+    method: 'POST',
+  },
   portfolioSummary: {
     path: '/portfolio-summary',
+    method: 'GET',
+  },
+  reportsSummary: {
+    path: '/reports/summary',
     method: 'GET',
   },
   themeArticles: {

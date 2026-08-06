@@ -51,6 +51,7 @@ class ClientRepository(DataApiBaseRepository):
                     SELECT client_id, next_best_action,
                            row_number() OVER (PARTITION BY client_id ORDER BY generated_date DESC) AS rn
                     FROM client_reports
+                    WHERE next_best_action IS NOT NULL AND next_best_action <> ''
                 ) cr ON CAST(c.client_id AS varchar) = CAST(cr.client_id AS varchar) AND cr.rn = 1
                 WHERE c.status = 'Active'
                 ORDER BY c.client_id

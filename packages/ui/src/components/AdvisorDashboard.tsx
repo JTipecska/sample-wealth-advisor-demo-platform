@@ -972,7 +972,13 @@ export function AdvisorDashboard() {
                         />
                       </td>
                       <td className="py-3 text-gray-700 text-xs">
-                        &ldquo;{client.nextBestAction}&rdquo;
+                        {client.nextBestAction ? (
+                          <>&ldquo;{client.nextBestAction}&rdquo;</>
+                        ) : (
+                          <span className="text-gray-400">
+                            No recommendation available
+                          </span>
+                        )}
                       </td>
                     </tr>
                   ))}

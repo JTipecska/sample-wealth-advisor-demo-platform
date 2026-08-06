@@ -207,6 +207,7 @@ export class Api<
         ),
       ),
       timeout: Duration.seconds(60),
+      memorySize: 512,
       tracing: Tracing.ACTIVE,
       environment: {
         AWS_CONNECTION_REUSE_ENABLED: '1',
