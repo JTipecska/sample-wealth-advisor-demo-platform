@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useNavigate } from '@tanstack/react-router';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { PageLayout } from '../PageLayout';
 import { useDDApi } from './useDDApi';
 import type { Portfolio, Session } from './types';
@@ -14,24 +15,25 @@ const STATUS_COLORS: Record<string, string> = {
 export function PortfolioDDDashboard() {
   const navigate = useNavigate();
   const api = useDDApi();
+  const queryClient = useQueryClient();
 
-  const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
-  const [sessions, setSessions] = useState<Session[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [selectedPortfolioId, setSelectedPortfolioId] = useState('');
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    api
-      .listPortfolios()
-      .then(setPortfolios)
-      .catch(() => setPortfolios([]));
-    api
-      .listSessions()
-      .then(setSessions)
-      .catch(() => setSessions([]));
-  }, []);
+  // Cached DD portfolios & sessions: returning to the page shows the cached
+  // lists instantly (stale-while-revalidate) instead of refetching on mount.
+  const portfoliosQuery = useQuery<Portfolio[]>({
+    queryKey: ['dd', 'portfolios'],
+    queryFn: () => api.listPortfolios(),
+  });
+  const sessionsQuery = useQuery<Session[]>({
+    queryKey: ['dd', 'sessions'],
+    queryFn: () => api.listSessions(),
+  });
+  const portfolios = portfoliosQuery.data ?? [];
+  const sessions = sessionsQuery.data ?? [];
 
   const handleStartReview = useCallback(async () => {
     if (!selectedPortfolioId) return;
@@ -39,7 +41,10 @@ export function PortfolioDDDashboard() {
     setError('');
     try {
       const session = await api.startReview(selectedPortfolioId);
-      setSessions((prev) => [session, ...prev]);
+      queryClient.setQueryData<Session[]>(['dd', 'sessions'], (prev) => [
+        session,
+        ...(prev ?? []),
+      ]);
       setShowModal(false);
       navigate({
         to: '/due-diligence/$reviewId',
@@ -50,7 +55,7 @@ export function PortfolioDDDashboard() {
     } finally {
       setStarting(false);
     }
-  }, [selectedPortfolioId, api, navigate]);
+  }, [selectedPortfolioId, api, navigate, queryClient]);
 
   const sortedSessions = [...sessions].sort(
     (a, b) =>

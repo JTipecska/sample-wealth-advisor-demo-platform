@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { PageLayout } from './PageLayout';
 import { useRuntimeConfig } from '../hooks/useRuntimeConfig';
 import { useAuth } from 'react-oidc-context';
@@ -30,23 +30,24 @@ interface PortfolioSummary {
 export function Portfolio() {
   const runtimeConfig = useRuntimeConfig();
   const auth = useAuth();
-  const [summary, setSummary] = useState<PortfolioSummary | null>(null);
-  const [loading, setLoading] = useState(true);
+  const apiUrl = runtimeConfig?.apis?.Api;
+  const token = auth.user?.id_token;
 
-  useEffect(() => {
-    const apiUrl = runtimeConfig?.apis?.Api;
-    if (!apiUrl) return;
-    const token = auth.user?.id_token;
-    fetch(`${apiUrl}portfolio-summary`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    })
-      .then((r) => r.json())
-      .then((data) => {
-        setSummary(data);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, [runtimeConfig, auth.user]);
+  // Cached portfolio summary: revisiting the page serves cached data instantly
+  // (stale-while-revalidate) instead of re-fetching and flashing "Loading..."
+  // on every mount.
+  const summaryQuery = useQuery<PortfolioSummary>({
+    queryKey: ['portfolio-summary'],
+    enabled: !!apiUrl,
+    queryFn: async () => {
+      const r = await fetch(`${apiUrl}portfolio-summary`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      return r.json();
+    },
+  });
+  const summary = summaryQuery.data ?? null;
+  const loading = summaryQuery.isLoading;
 
   const formatCurrency = (val: number) => {
     if (val >= 1_000_000) return `$${(val / 1_000_000).toFixed(2)}M`;
