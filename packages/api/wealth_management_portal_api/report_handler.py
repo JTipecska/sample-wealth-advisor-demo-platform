@@ -43,6 +43,30 @@ def get_reports_summary() -> ReportsSummaryResponse:
     return _get_reports_summary_redshift()
 
 
+def _filter_existing_reports(candidates: list[tuple[str, str]]) -> list[str]:
+    """Given (client_id, s3_path) candidates, return client_ids whose PDF exists in S3.
+
+    A client counts as "report available" only when its PDF is present in S3 — a
+    client_reports row with status='complete' is NOT sufficient (seed rows and
+    NBA-only records point at s3_paths whose objects were never generated). Uses
+    head_object (s3:GetObject) so it needs no extra ListBucket permission.
+    """
+    if not REPORT_S3_BUCKET:
+        return []
+    s3_client = boto3.client("s3")
+    available: list[str] = []
+    for client_id, s3_path in candidates:
+        if not s3_path:
+            continue
+        try:
+            s3_client.head_object(Bucket=REPORT_S3_BUCKET, Key=s3_path)
+            available.append(client_id)
+        except Exception:
+            # Missing object (or any access issue) => not available; row shows Generate.
+            pass
+    return available
+
+
 def _get_reports_summary_athena() -> ReportsSummaryResponse:
     from wealth_management_portal_portfolio_data_access.repositories.data_api_base_repository import (
         DataApiBaseRepository,
@@ -50,7 +74,7 @@ def _get_reports_summary_athena() -> ReportsSummaryResponse:
 
     repo = DataApiBaseRepository()
     sql = """
-        SELECT client_id FROM (
+        SELECT client_id, s3_path FROM (
             SELECT client_id, status, s3_path,
                    ROW_NUMBER() OVER (PARTITION BY client_id ORDER BY generated_date DESC) AS rn
             FROM client_reports
@@ -58,8 +82,8 @@ def _get_reports_summary_athena() -> ReportsSummaryResponse:
         WHERE rn = 1 AND status = 'complete' AND s3_path LIKE 'reports/%'
     """
     results = repo._execute_and_wait(sql)
-    client_ids = [r["client_id"] for r in results] if results else []
-    return ReportsSummaryResponse(clients_with_reports=client_ids)
+    candidates = [(r["client_id"], r.get("s3_path")) for r in (results or [])]
+    return ReportsSummaryResponse(clients_with_reports=_filter_existing_reports(candidates))
 
 
 def _get_reports_summary_redshift() -> ReportsSummaryResponse:
@@ -68,15 +92,16 @@ def _get_reports_summary_redshift() -> ReportsSummaryResponse:
     factory = iam_connection_factory()
     with factory() as conn:
         cursor = conn.execute(
-            """SELECT client_id FROM (
+            """SELECT client_id, s3_path FROM (
                 SELECT client_id, status, s3_path,
                        ROW_NUMBER() OVER (PARTITION BY client_id ORDER BY generated_date DESC) AS rn
                 FROM public.client_reports
             ) latest
             WHERE rn = 1 AND status = 'complete' AND s3_path LIKE 'reports/%'"""
         )
-        client_ids = [row[0] for row in cursor.fetchall()]
-    return ReportsSummaryResponse(clients_with_reports=client_ids)
+        rows = cursor.fetchall()
+    candidates = [(row[0], row[1]) for row in rows]
+    return ReportsSummaryResponse(clients_with_reports=_filter_existing_reports(candidates))
 
 
 def get_client_report(client_id: str) -> ReportStatusResponse:
