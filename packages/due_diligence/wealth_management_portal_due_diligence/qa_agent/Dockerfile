@@ -12,4 +12,4 @@ EXPOSE 8080
 
 ENV PYTHONPATH=/app
 
-CMD ["python", "-m", "wealth_management_portal_portfolio_dd.qa_agent.main"]
+CMD ["python", "-m", "wealth_management_portal_due_diligence.qa_agent.main"]

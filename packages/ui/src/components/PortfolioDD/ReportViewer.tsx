@@ -44,7 +44,7 @@ function ScoreBar({ score, max = 10 }: { score: number; max?: number }) {
 }
 
 export function ReportViewer() {
-  const { reviewId } = useParams({ from: '/portfolio-dd/$reviewId/report' });
+  const { reviewId } = useParams({ from: '/due-diligence/$reviewId/report' });
   const navigate = useNavigate();
   const api = useDDApi();
 
@@ -88,7 +88,7 @@ export function ReportViewer() {
         <div className="flex gap-3">
           <button
             onClick={() =>
-              navigate({ to: '/portfolio-dd/$reviewId', params: { reviewId } })
+              navigate({ to: '/due-diligence/$reviewId', params: { reviewId } })
             }
             className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
           >

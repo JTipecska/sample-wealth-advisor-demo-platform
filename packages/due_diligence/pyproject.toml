@@ -1,6 +1,6 @@
 [tool.coverage.run]
 branch = true
-source = [ "wealth_management_portal_portfolio_dd" ]
+source = [ "wealth_management_portal_due_diligence" ]
 
 [tool.coverage.report]
 exclude_lines = [ "if TYPE_CHECKING:" ]
@@ -10,17 +10,17 @@ show_missing = true
 addopts = """
  --ignore=tests/integration
  --cov
- --cov-report html:'../../coverage/packages/portfolio_dd/html'
- --cov-report xml:'../../coverage/packages/portfolio_dd/coverage.xml'
- --html='../../reports/packages/portfolio_dd/unittests/html/index.html'
- --junitxml='../../reports/packages/portfolio_dd/unittests/junit.xml'
+ --cov-report html:'../../coverage/packages/due_diligence/html'
+ --cov-report xml:'../../coverage/packages/due_diligence/coverage.xml'
+ --html='../../reports/packages/due_diligence/unittests/html/index.html'
+ --junitxml='../../reports/packages/due_diligence/unittests/junit.xml'
 """
 markers = [
     "integration: marks tests as integration tests (deselect with '-m \"not integration\"')"
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = [ "wealth_management_portal_portfolio_dd" ]
+packages = [ "wealth_management_portal_due_diligence" ]
 
 [tool.hatch.metadata]
 allow-direct-references = true
@@ -37,7 +37,7 @@ indent-width = 4
   unfixable = [ ]
 
 [project]
-name = "wealth_management_portal.portfolio_dd"
+name = "wealth_management_portal.due_diligence"
 version = "1.0.0"
 description = "Portfolio Due Diligence AI — automated ODD/IDD for managed funds"
 requires-python = ">=3.12"

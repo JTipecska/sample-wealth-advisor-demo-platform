@@ -37,7 +37,7 @@ interface SourceDoc {
 }
 
 export function ReviewDetail() {
-  const { reviewId } = useParams({ from: '/portfolio-dd/$reviewId' });
+  const { reviewId } = useParams({ from: '/due-diligence/$reviewId' });
   const auth = useAuth();
   const api = useDDApi();
 

@@ -42,7 +42,7 @@ export function PortfolioDDDashboard() {
       setSessions((prev) => [session, ...prev]);
       setShowModal(false);
       navigate({
-        to: '/portfolio-dd/$reviewId',
+        to: '/due-diligence/$reviewId',
         params: { reviewId: session.session_id },
       });
     } catch (e: unknown) {
@@ -171,7 +171,7 @@ export function PortfolioDDDashboard() {
                     <button
                       onClick={() =>
                         navigate({
-                          to: '/portfolio-dd/$reviewId',
+                          to: '/due-diligence/$reviewId',
                           params: { reviewId: s.session_id },
                         })
                       }
