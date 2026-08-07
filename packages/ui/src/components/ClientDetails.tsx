@@ -43,14 +43,10 @@ export function ClientDetails() {
   const navigate = useNavigate();
   const api = useApiClient();
   const apiOptions = useApi();
-  const [holdings, setHoldings] = useState<any[]>([]);
-  const [holdingsLoading, setHoldingsLoading] = useState(true);
-  const [transactions, setTransactions] = useState<any[]>([]);
-  const [transactionsLoading, setTransactionsLoading] = useState(true);
+  const HOLDINGS_PAGE = 10;
+  const TXN_PAGE = 10;
   const [holdingsOffset, setHoldingsOffset] = useState(0);
   const [transactionsOffset, setTransactionsOffset] = useState(0);
-  const [hasMoreHoldings, setHasMoreHoldings] = useState(true);
-  const [hasMoreTransactions, setHasMoreTransactions] = useState(true);
   const [expandedStock, setExpandedStock] = useState<string | null>(null);
   const [expandedThemeId, setExpandedThemeId] = useState<string | null>(null);
   const [selectedThemeId, setSelectedThemeId] = useState<string | null>(null);
@@ -156,53 +152,47 @@ export function ClientDetails() {
     if (firstTicker) setExpandedStock(firstTicker);
   }, [themesQuery.data]);
 
-  // Holdings and transactions retain manual pagination (rows accumulate across
-  // offsets via the Next/Previous controls), so they stay on a direct fetch.
-  useEffect(() => {
-    if (!clientId || !api) return;
+  // Holdings & transactions: cached, paginated reads. With the global
+  // keepPreviousData default the current page stays visible while the next
+  // page loads, and the 24h gcTime means revisiting a client shows the cached
+  // page instantly instead of the old always-on skeleton (they used to fetch
+  // manually on every mount). isLoading is only true on the very first load
+  // with no cached data.
+  const holdingsQuery = useQuery<any>({
+    queryKey: ['clientHoldings', clientId, holdingsOffset],
+    queryFn: () =>
+      api.clientHoldings({
+        clientId: clientId as string,
+        limit: HOLDINGS_PAGE,
+        offset: holdingsOffset,
+      }),
+    enabled: !!clientId && !!api,
+  });
+  const parsedHoldings: any =
+    typeof holdingsQuery.data === 'string'
+      ? JSON.parse(holdingsQuery.data)
+      : holdingsQuery.data;
+  const holdings: any[] = parsedHoldings?.holdings ?? [];
+  const holdingsLoading = holdingsQuery.isLoading;
+  const hasMoreHoldings = holdings.length === HOLDINGS_PAGE;
 
-    const fetchHoldings = async () => {
-      setHoldingsLoading(true);
-      try {
-        const holdingsData = await api.clientHoldings({ clientId, limit: 10 });
-        const parsedHoldingsData =
-          typeof holdingsData === 'string'
-            ? JSON.parse(holdingsData)
-            : holdingsData;
-        setHoldings(parsedHoldingsData.holdings || []);
-        setHasMoreHoldings((parsedHoldingsData.holdings || []).length === 10);
-      } catch (error) {
-        console.error('Error fetching holdings:', error);
-      } finally {
-        setHoldingsLoading(false);
-      }
-    };
-
-    const fetchTransactions = async () => {
-      setTransactionsLoading(true);
-      try {
-        const transactionsData = await api.clientTransactions({
-          clientId,
-          limit: 10,
-        });
-        const parsedTransactionsData =
-          typeof transactionsData === 'string'
-            ? JSON.parse(transactionsData)
-            : transactionsData;
-        setTransactions(parsedTransactionsData.transactions || []);
-        setHasMoreTransactions(
-          (parsedTransactionsData.transactions || []).length === 10,
-        );
-      } catch (error) {
-        console.error('Error fetching transactions:', error);
-      } finally {
-        setTransactionsLoading(false);
-      }
-    };
-
-    fetchHoldings();
-    fetchTransactions();
-  }, [clientId, api]);
+  const transactionsQuery = useQuery<any>({
+    queryKey: ['clientTransactions', clientId, transactionsOffset],
+    queryFn: () =>
+      api.clientTransactions({
+        clientId: clientId as string,
+        limit: TXN_PAGE,
+        offset: transactionsOffset,
+      }),
+    enabled: !!clientId && !!api,
+  });
+  const parsedTransactions: any =
+    typeof transactionsQuery.data === 'string'
+      ? JSON.parse(transactionsQuery.data)
+      : transactionsQuery.data;
+  const transactions: any[] = parsedTransactions?.transactions ?? [];
+  const transactionsLoading = transactionsQuery.isLoading;
+  const hasMoreTransactions = transactions.length === TXN_PAGE;
 
   const reportQuery = useQuery({
     ...apiOptions.clientReport.queryOptions({ clientId: clientId as string }),
@@ -1236,18 +1226,11 @@ export function ClientDetails() {
             <div className="px-6 pb-4 flex items-center justify-center gap-2">
               {holdingsOffset > 0 && (
                 <button
-                  onClick={async () => {
-                    if (!api) return;
-                    const newOffset = Math.max(0, holdingsOffset - 20);
-                    const data = await api.clientHoldings({
-                      clientId: clientId as string,
-                      limit: 20,
-                      offset: newOffset,
-                    });
-                    setHoldings(data.holdings || []);
-                    setHoldingsOffset(newOffset);
-                    setHasMoreHoldings((data.holdings || []).length === 20);
-                  }}
+                  onClick={() =>
+                    setHoldingsOffset(
+                      Math.max(0, holdingsOffset - HOLDINGS_PAGE),
+                    )
+                  }
                   className="px-3 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded"
                 >
                   ← Previous
@@ -1257,19 +1240,9 @@ export function ClientDetails() {
                 Page {Math.floor(holdingsOffset / 10) + 1}
               </span>
               <button
-                onClick={async () => {
-                  if (!api) return;
-                  const newOffset = holdingsOffset + 20;
-                  const data = await api.clientHoldings({
-                    clientId: clientId as string,
-                    limit: 20,
-                    offset: newOffset,
-                  });
-                  const newHoldings = data.holdings || [];
-                  setHoldings([...holdings, ...newHoldings]);
-                  setHoldingsOffset(newOffset);
-                  setHasMoreHoldings(newHoldings.length === 20);
-                }}
+                onClick={() =>
+                  setHoldingsOffset(holdingsOffset + HOLDINGS_PAGE)
+                }
                 className="px-3 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded"
               >
                 Next →
@@ -1442,20 +1415,11 @@ export function ClientDetails() {
             <div className="px-6 pb-4 flex items-center justify-center gap-2">
               {transactionsOffset > 0 && (
                 <button
-                  onClick={async () => {
-                    if (!api) return;
-                    const newOffset = Math.max(0, transactionsOffset - 20);
-                    const data = await api.clientTransactions({
-                      clientId: clientId as string,
-                      limit: 20,
-                      offset: newOffset,
-                    });
-                    setTransactions(data.transactions || []);
-                    setTransactionsOffset(newOffset);
-                    setHasMoreTransactions(
-                      (data.transactions || []).length === 20,
-                    );
-                  }}
+                  onClick={() =>
+                    setTransactionsOffset(
+                      Math.max(0, transactionsOffset - TXN_PAGE),
+                    )
+                  }
                   className="px-3 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded"
                 >
                   ← Previous
@@ -1465,19 +1429,9 @@ export function ClientDetails() {
                 Page {Math.floor(transactionsOffset / 10) + 1}
               </span>
               <button
-                onClick={async () => {
-                  if (!api) return;
-                  const newOffset = transactionsOffset + 20;
-                  const data = await api.clientTransactions({
-                    clientId: clientId as string,
-                    limit: 20,
-                    offset: newOffset,
-                  });
-                  const newTransactions = data.transactions || [];
-                  setTransactions([...transactions, ...newTransactions]);
-                  setTransactionsOffset(newOffset);
-                  setHasMoreTransactions(newTransactions.length === 20);
-                }}
+                onClick={() =>
+                  setTransactionsOffset(transactionsOffset + TXN_PAGE)
+                }
                 className="px-3 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded"
               >
                 Next →
