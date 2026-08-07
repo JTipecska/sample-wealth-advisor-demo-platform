@@ -113,5 +113,14 @@ response.json
 *.backup
 mfa_response.json
 
+# Large media (use Git LFS for videos if needed)
+*.mp4
+*.mov
+*.avi
+
+# Backup files
+*.bak
+*.orig
+
 # Lock files (Python)
 uv.lock
