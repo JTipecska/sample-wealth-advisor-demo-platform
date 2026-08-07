@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { useAuth } from 'react-oidc-context';
 import { PageLayout } from '../PageLayout';
@@ -10,8 +11,6 @@ import type {
   HITLFlag,
   CriterionAssessment,
 } from './types';
-
-const noop = () => undefined;
 
 const RAG_COLORS: Record<string, string> = {
   green: 'bg-green-100 text-green-700',
@@ -41,66 +40,65 @@ export function ReviewDetail() {
   const auth = useAuth();
   const api = useDDApi();
 
-  const [session, setSession] = useState<Session | null>(null);
-  const [events, setEvents] = useState<ProgressEvent[]>([]);
-  const [flags, setFlags] = useState<HITLFlag[]>([]);
-  const [report, setReport] = useState<DDReport | null>(null);
+  const queryClient = useQueryClient();
+
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [expandedCriteria, setExpandedCriteria] = useState<Set<string>>(
     new Set(),
   );
-  const [sourceDocs, setSourceDocs] = useState<SourceDoc[]>([]);
   const [resolvingId, setResolvingId] = useState<string | null>(null);
   const [resolveNotes, setResolveNotes] = useState('');
   const [loadingDocKey, setLoadingDocKey] = useState<string | null>(null);
   const feedRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!reviewId) return;
+  // Cached, live-polling review data. While the review runs, the session and
+  // event feed poll every 3s; once complete/failed the polling stops. Because
+  // the data lives in the query cache, returning to a review renders instantly
+  // from cache instead of blanking to a loading state while it re-fetches.
+  const sessionQuery = useQuery<Session>({
+    queryKey: ['dd', 'session', reviewId],
+    queryFn: () => api.getSession(reviewId),
+    enabled: !!reviewId,
+    refetchInterval: (q) => {
+      const s = q.state.data?.status;
+      return s === 'complete' || s === 'failed' ? false : 3000;
+    },
+  });
+  const session = sessionQuery.data ?? null;
+  const isRunning =
+    !session || (session.status !== 'complete' && session.status !== 'failed');
 
-    const poll = async () => {
-      try {
-        const s = await api.getSession(reviewId);
-        setSession(s);
-        if (s.portfolio_id && sourceDocs.length === 0) {
-          api
-            .listSourceDocuments(s.portfolio_id)
-            .then(setSourceDocs)
-            .catch(noop);
-        }
-        const evts = await api.getEvents(reviewId);
-        setEvents(evts);
-        if (s.status === 'complete' || s.status === 'failed') {
-          clearInterval(intervalId);
-          if (s.status === 'complete') {
-            api.listFlags(reviewId).then(setFlags).catch(noop);
-          }
-        }
-      } catch {
-        /* keep polling */
-      }
-    };
+  const eventsQuery = useQuery<ProgressEvent[]>({
+    queryKey: ['dd', 'events', reviewId],
+    queryFn: () => api.getEvents(reviewId),
+    enabled: !!reviewId,
+    refetchInterval: isRunning ? 3000 : false,
+  });
+  const events = eventsQuery.data ?? [];
 
-    poll();
-    const intervalId = setInterval(poll, 3000);
-    return () => clearInterval(intervalId);
-  }, [reviewId]);
+  const sourceDocsQuery = useQuery<SourceDoc[]>({
+    queryKey: ['dd', 'sourceDocs', session?.portfolio_id],
+    queryFn: () => api.listSourceDocuments(session?.portfolio_id ?? ''),
+    enabled: !!session?.portfolio_id,
+  });
+  const sourceDocs = sourceDocsQuery.data ?? [];
 
-  // Load report when session completes (with retry)
-  useEffect(() => {
-    if (session?.status === 'complete' && !report) {
-      const loadReport = () =>
-        api.getReport(reviewId).then(setReport).catch(noop);
-      loadReport();
-      const retryId = setTimeout(loadReport, 2000);
-      const retryId2 = setTimeout(loadReport, 5000);
-      return () => {
-        clearTimeout(retryId);
-        clearTimeout(retryId2);
-      };
-    }
-    return undefined;
-  }, [session?.status, report, reviewId]);
+  const flagsQuery = useQuery<HITLFlag[]>({
+    queryKey: ['dd', 'flags', reviewId],
+    queryFn: () => api.listFlags(reviewId),
+    enabled: session?.status === 'complete',
+  });
+  const flags = flagsQuery.data ?? [];
+
+  // Report can lag session completion; retry a few times before giving up.
+  const reportQuery = useQuery<DDReport>({
+    queryKey: ['dd', 'report', reviewId],
+    queryFn: () => api.getReport(reviewId),
+    enabled: session?.status === 'complete',
+    retry: 3,
+    retryDelay: 2000,
+  });
+  const report = reportQuery.data ?? null;
 
   useEffect(() => {
     feedRef.current?.scrollTo({
@@ -111,8 +109,8 @@ export function ReviewDetail() {
 
   const handleResolve = async (flagId: string, resolution: string) => {
     await api.resolveFlag(reviewId, flagId, resolution, resolveNotes);
-    setFlags((prev) =>
-      prev.map((f) =>
+    queryClient.setQueryData<HITLFlag[]>(['dd', 'flags', reviewId], (prev) =>
+      (prev ?? []).map((f) =>
         f.flag_id === flagId
           ? {
               ...f,

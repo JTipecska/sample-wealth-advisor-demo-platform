@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useParams, useNavigate } from '@tanstack/react-router';
 import { PageLayout } from '../PageLayout';
 import { useDDApi } from './useDDApi';
@@ -48,20 +48,20 @@ export function ReportViewer() {
   const navigate = useNavigate();
   const api = useDDApi();
 
-  const [report, setReport] = useState<DDReport | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    setLoading(true);
-    api
-      .getReport(reviewId)
-      .then(setReport)
-      .catch((e: unknown) =>
-        setError(e instanceof Error ? e.message : 'Failed to load report'),
-      )
-      .finally(() => setLoading(false));
-  }, [reviewId]);
+  // Cached report: revisiting serves the cached report instantly instead of
+  // re-fetching and showing "Loading report…" on every mount.
+  const reportQuery = useQuery<DDReport>({
+    queryKey: ['dd', 'report', reviewId],
+    queryFn: () => api.getReport(reviewId),
+    retry: false,
+  });
+  const report = reportQuery.data ?? null;
+  const loading = reportQuery.isLoading;
+  const error = reportQuery.isError
+    ? reportQuery.error instanceof Error
+      ? reportQuery.error.message
+      : 'Failed to load report'
+    : '';
 
   if (loading) {
     return (
