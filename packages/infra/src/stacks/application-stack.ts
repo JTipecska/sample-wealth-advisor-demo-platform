@@ -1215,6 +1215,24 @@ export class ApplicationStack extends Stack {
         resources: [`arn:aws:kms:${this.region}:${this.account}:key/*`],
       }),
     );
+    // Iceberg writes (INSERT into themes) commit by swapping the table metadata
+    // pointer via Glue, so the in-Lambda theme writer needs Glue table/partition
+    // write actions in addition to the read actions above.
+    generateGeneralThemes.role?.addToPrincipalPolicy(
+      new PolicyStatement({
+        actions: [
+          'glue:UpdateTable',
+          'glue:CreateTable',
+          'glue:GetPartition',
+          'glue:GetPartitions',
+          'glue:BatchCreatePartition',
+          'glue:CreatePartition',
+          'glue:UpdatePartition',
+          'glue:BatchGetPartition',
+        ],
+        resources: ['*'],
+      }),
+    );
 
     const generatePortfolioThemes = new ThemeSchedulerGeneratePortfolioThemes(
       this,
@@ -1325,6 +1343,22 @@ export class ApplicationStack extends Stack {
       new PolicyStatement({
         actions: ['kms:GenerateDataKey', 'kms:Decrypt', 'kms:Encrypt'],
         resources: [`arn:aws:kms:${this.region}:${this.account}:key/*`],
+      }),
+    );
+    // Iceberg writes (INSERT into themes) require Glue table/partition write actions.
+    generatePortfolioThemes.role?.addToPrincipalPolicy(
+      new PolicyStatement({
+        actions: [
+          'glue:UpdateTable',
+          'glue:CreateTable',
+          'glue:GetPartition',
+          'glue:GetPartitions',
+          'glue:BatchCreatePartition',
+          'glue:CreatePartition',
+          'glue:UpdatePartition',
+          'glue:BatchGetPartition',
+        ],
+        resources: ['*'],
       }),
     );
 

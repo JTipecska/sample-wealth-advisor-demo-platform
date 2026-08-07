@@ -176,7 +176,9 @@ def build_portfolio(
     )  # avoid division by zero
 
     for h in holdings_with_securities:
-        purchase_price = float(h["cost_basis"]) / float(h["quantity"]) if h.get("quantity") and h.get("cost_basis") else 0.0
+        purchase_price = (
+            float(h["cost_basis"]) / float(h["quantity"]) if h.get("quantity") and h.get("cost_basis") else 0.0
+        )
         current_price = float(h.get("current_price") or 0)
         market_value = float(h.get("market_value") or 0)
 

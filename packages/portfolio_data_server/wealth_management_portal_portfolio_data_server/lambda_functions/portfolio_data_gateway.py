@@ -254,6 +254,39 @@ def _save_report_athena(event):
 
 
 def _save_article(event):
+    if os.environ.get("DATA_ENGINE", "athena").lower() == "athena":
+        from wealth_management_portal_portfolio_data_access.repositories.data_api_base_repository import (
+            DataApiBaseRepository,
+        )
+
+        published_date = event.get("published_date")
+        pub = (
+            datetime.fromisoformat(published_date.replace("Z", "+00:00")) if published_date else datetime.now()
+        ).strftime("%Y-%m-%d %H:%M:%S")
+        created = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        # Athena rejects empty-string ExecutionParameters, so map empty/None to a
+        # sentinel and convert back to NULL with NULLIF in the SQL.
+        _NULL = "__NULL__"
+        DataApiBaseRepository()._execute_parameterized(
+            "INSERT INTO articles "
+            "(content_hash, url, title, content, summary, published_date, source, author, file_path, created_at) "
+            "VALUES (?, ?, ?, ?, NULLIF(?, '__NULL__'), CAST(? AS timestamp), ?, "
+            "NULLIF(?, '__NULL__'), NULLIF(?, '__NULL__'), CAST(? AS timestamp))",
+            [
+                event["content_hash"],
+                event["url"],
+                event["title"],
+                event["content"],
+                event.get("summary") or _NULL,
+                pub,
+                event["source"],
+                event.get("author") or _NULL,
+                event.get("file_path") or _NULL,
+                created,
+            ],
+        )
+        return {"ok": True, "content_hash": event["content_hash"]}
+
     repo = ArticleRepository(_conn_factory)
     published_date = event.get("published_date")
     article = Article(
@@ -280,6 +313,13 @@ def _get_existing_article_hashes(event):
 
 
 def _get_existing_article_urls(event):
+    if os.environ.get("DATA_ENGINE", "athena").lower() == "athena":
+        from wealth_management_portal_portfolio_data_access.repositories.data_api_base_repository import (
+            DataApiBaseRepository,
+        )
+
+        rows = DataApiBaseRepository()._execute_and_wait("SELECT url FROM articles", [])
+        return {"ok": True, "urls": [r["url"] for r in rows if r.get("url")]}
     repo = ArticleRepository(_conn_factory)
     return {"ok": True, "urls": list(repo.get_existing_urls())}
 

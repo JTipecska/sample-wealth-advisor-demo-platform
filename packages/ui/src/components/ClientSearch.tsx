@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import { PageLayout, SearchBox } from './PageLayout';
@@ -34,8 +34,8 @@ export function ClientSearch() {
   const clientsWithReports = new Set(
     reportsSummaryQuery.data?.clientsWithReports ?? [],
   );
-  const [clients, setClients] = useState<Client[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [searchResults, setSearchResults] = useState<Client[] | null>(null);
+  const [searching, setSearching] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchQuery2, setSearchQuery2] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('list');
@@ -44,9 +44,33 @@ export function ClientSearch() {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const initialLimit = 50;
 
-  useEffect(() => {
-    fetchClients();
-  }, [api]);
+  // Base client list via cached useQuery: returning to this page serves the
+  // cached rows instantly (stale-while-revalidate) instead of the old
+  // useState/useEffect that re-fetched and showed a skeleton on every mount.
+  const clientsQuery = useQuery<any>({
+    queryKey: ['clientsList', showAll],
+    queryFn: () =>
+      api.clients({ limit: showAll ? undefined : initialLimit, offset: 0 }),
+    enabled: !!api,
+  });
+  const baseClients: Client[] = (
+    (clientsQuery.data?.clients ?? []) as any[]
+  ).map((client: any) => ({
+    client_id: client.clientId,
+    customer_name: client.customerName,
+    net_worth: client.netWorth,
+    ytd_perf: client.ytdPerf,
+    goal_progress: client.goalProgress,
+    risk_tolerance: client.riskTolerance,
+    client_since: client.clientSince,
+    interaction_sentiment: client.interactionSentiment,
+    segment: client.segment,
+    aum: client.aum,
+    next_best_action: client.nextBestAction ?? null,
+  }));
+  // A run natural-language search overrides the base list until cleared.
+  const clients: Client[] = searchResults ?? baseClients;
+  const loading = searching || (!searchResults && clientsQuery.isLoading);
 
   const handleSort = (field: keyof Client) => {
     if (sortField === field) {
@@ -68,43 +92,11 @@ export function ClientSearch() {
     return String(aVal).localeCompare(String(bVal)) * modifier;
   });
 
-  // Fetch clients with optional limit
-  const fetchClients = async (loadAll = false) => {
-    if (!api) return;
-    setLoading(true);
-    try {
-      const data = await api.clients({
-        limit: loadAll ? undefined : initialLimit,
-        offset: 0,
-      });
-      console.log('Fetched clients:', data);
-      const mapped = (data.clients || []).map((client) => ({
-        client_id: client.clientId,
-        customer_name: client.customerName,
-        net_worth: client.netWorth,
-        ytd_perf: client.ytdPerf,
-        goal_progress: client.goalProgress,
-        risk_tolerance: client.riskTolerance,
-        client_since: client.clientSince,
-        interaction_sentiment: client.interactionSentiment,
-        segment: client.segment,
-        aum: client.aum,
-        next_best_action: client.nextBestAction ?? null,
-      }));
-      setClients(mapped);
-      if (loadAll) setShowAll(true);
-    } catch (error) {
-      console.error('Error fetching clients:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // Natural language search
   const handleNLSearch = async () => {
     console.log('NL Search triggered with query:', searchQuery);
     if (!searchQuery.trim() || !api) return;
-    setLoading(true);
+    setSearching(true);
     try {
       const result = await api.clientSearch({ query: searchQuery });
       console.log('NL Search result:', result);
@@ -128,7 +120,7 @@ export function ClientSearch() {
           next_best_action: row.next_best_action ?? null,
         }));
         console.log('Mapped clients:', mapped);
-        setClients(mapped);
+        setSearchResults(mapped);
       } else {
         alert(`Search failed: ${result.error}`);
       }
@@ -136,14 +128,14 @@ export function ClientSearch() {
       console.error('Error searching clients:', error);
       alert(`Search failed: ${error}`);
     } finally {
-      setLoading(false);
+      setSearching(false);
     }
   };
 
   // Natural language search for second search box
   const handleNLSearch2 = async () => {
     if (!searchQuery2.trim() || !api) return;
-    setLoading(true);
+    setSearching(true);
     try {
       const result = await api.clientSearch({ query: searchQuery2 });
       if (result.success && result.data) {
@@ -165,7 +157,7 @@ export function ClientSearch() {
           aum: row.aum || 0,
           next_best_action: row.next_best_action ?? null,
         }));
-        setClients(mapped);
+        setSearchResults(mapped);
       } else {
         alert(`Search failed: ${result.error}`);
       }
@@ -173,7 +165,7 @@ export function ClientSearch() {
       console.error('Error searching clients:', error);
       alert(`Search failed: ${error}`);
     } finally {
-      setLoading(false);
+      setSearching(false);
     }
   };
 
@@ -535,17 +527,19 @@ export function ClientSearch() {
                     ))}
                   </tbody>
                 </table>
-                {!showAll && clients.length === initialLimit && (
-                  <div className="px-6 py-4 flex items-center justify-center border-t">
-                    <button
-                      onClick={() => fetchClients(true)}
-                      className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-                      disabled={loading}
-                    >
-                      Load More Data
-                    </button>
-                  </div>
-                )}
+                {!searchResults &&
+                  !showAll &&
+                  baseClients.length === initialLimit && (
+                    <div className="px-6 py-4 flex items-center justify-center border-t">
+                      <button
+                        onClick={() => setShowAll(true)}
+                        className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                        disabled={clientsQuery.isFetching}
+                      >
+                        Load More Data
+                      </button>
+                    </div>
+                  )}
                 {clients.length === 0 && !loading && (
                   <div className="text-center py-8 text-gray-500">
                     No clients found

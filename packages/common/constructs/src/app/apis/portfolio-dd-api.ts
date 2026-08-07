@@ -36,11 +36,11 @@ export class PortfolioDdApi extends Construct {
   public static createHandler(scope: Construct): Function {
     return new Function(scope, 'PortfolioDdApiHandler', {
       runtime: LambdaRuntime.PYTHON_3_12,
-      handler: 'wealth_management_portal_portfolio_dd.api.main.handler',
+      handler: 'wealth_management_portal_due_diligence.api.main.handler',
       code: Code.fromAsset(
         url.fileURLToPath(
           new URL(
-            '../../../../../../dist/packages/portfolio_dd/bundle-x86',
+            '../../../../../../dist/packages/due_diligence/bundle-x86',
             import.meta.url,
           ),
         ),

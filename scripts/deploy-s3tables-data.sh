@@ -54,12 +54,15 @@ if [ -z "$SOURCE_BUCKET" ]; then
     echo "WARNING: Could not determine source data bucket from Terraform outputs."
     echo "Please set SOURCE_BUCKET and re-run, or upload CSVs manually."
     echo ""
-    echo "Expected: aws s3 cp $DATA_DIR/ s3://BUCKET/financial_advisor/ --recursive"
+    echo "Expected: aws s3 cp $DATA_DIR/ s3://BUCKET/ --recursive --exclude '*' --include '*.csv'"
     exit 1
 fi
 
-echo "Step 2: Uploading seed CSV data to s3://$SOURCE_BUCKET/financial_advisor/..."
-aws s3 cp "$DATA_DIR/" "s3://$SOURCE_BUCKET/financial_advisor/" --recursive --quiet
+# The Glue jobs read SOURCE_PATH = s3://BUCKET/<table>.csv (bucket root), and
+# Terraform (bucket.tf) uploads the CSVs there. Upload to the same root so this
+# script and Terraform agree on one location.
+echo "Step 2: Uploading seed CSV data to s3://$SOURCE_BUCKET/ ..."
+aws s3 cp "$DATA_DIR/" "s3://$SOURCE_BUCKET/" --recursive --exclude '*' --include '*.csv' --quiet
 echo "  Uploaded $(ls "$DATA_DIR"/*.csv | wc -l | tr -d ' ') CSV files."
 echo ""
 

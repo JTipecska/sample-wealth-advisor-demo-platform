@@ -132,9 +132,7 @@ def _fetch_data_athena(client_id: str) -> dict:
     repo = DataApiBaseRepository()
     params = [{"name": "client_id", "value": client_id}]
 
-    client_rows = repo._execute_and_wait(
-        "SELECT * FROM clients WHERE client_id = :client_id", params
-    )
+    client_rows = repo._execute_and_wait("SELECT * FROM clients WHERE client_id = :client_id", params)
     if not client_rows:
         return {"error": f"Client '{client_id}' not found"}
 
@@ -176,15 +174,9 @@ def _fetch_data_athena(client_id: str) -> dict:
     restrictions = repo._execute_and_wait(
         "SELECT * FROM client_investment_restrictions WHERE client_id = :client_id", params
     )
-    accounts = repo._execute_and_wait(
-        "SELECT * FROM accounts WHERE client_id = :client_id", params
-    )
-    income_expense = repo._execute_and_wait(
-        "SELECT * FROM client_income_expense WHERE client_id = :client_id", params
-    )
-    recommended_products = repo._execute_and_wait(
-        "SELECT * FROM recommended_products LIMIT 20", []
-    )
+    accounts = repo._execute_and_wait("SELECT * FROM accounts WHERE client_id = :client_id", params)
+    income_expense = repo._execute_and_wait("SELECT * FROM client_income_expense WHERE client_id = :client_id", params)
+    recommended_products = repo._execute_and_wait("SELECT * FROM recommended_products LIMIT 20", [])
 
     return {
         "client": client_rows[0],

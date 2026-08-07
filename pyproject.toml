@@ -22,7 +22,7 @@ dependencies = [
   "wealth_management_portal.scheduler_mcp",
   "wealth_management_portal.scheduler_tools",
   "wealth_management_portal.web_crawler",
-  "wealth_management_portal.portfolio_dd"
+  "wealth_management_portal.due_diligence"
 ]
 
 [tool.uv.workspace]
@@ -47,7 +47,7 @@ members = [
   "packages/web_crawler",
   "packages/email_sender_mcp",
   "packages/scheduler_executor",
-  "packages/portfolio_dd"
+  "packages/due_diligence"
 ]
 
 [tool.uv.sources."wealth_management_portal.common_auth"]
@@ -110,7 +110,7 @@ workspace = true
 [tool.uv.sources."wealth_management_portal.web_crawler"]
 workspace = true
 
-[tool.uv.sources."wealth_management_portal.portfolio_dd"]
+[tool.uv.sources."wealth_management_portal.due_diligence"]
 workspace = true
 
 [dependency-groups]

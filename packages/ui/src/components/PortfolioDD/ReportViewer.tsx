@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useParams, useNavigate } from '@tanstack/react-router';
 import { PageLayout } from '../PageLayout';
 import { useDDApi } from './useDDApi';
@@ -44,24 +44,24 @@ function ScoreBar({ score, max = 10 }: { score: number; max?: number }) {
 }
 
 export function ReportViewer() {
-  const { reviewId } = useParams({ from: '/portfolio-dd/$reviewId/report' });
+  const { reviewId } = useParams({ from: '/due-diligence/$reviewId/report' });
   const navigate = useNavigate();
   const api = useDDApi();
 
-  const [report, setReport] = useState<DDReport | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    setLoading(true);
-    api
-      .getReport(reviewId)
-      .then(setReport)
-      .catch((e: unknown) =>
-        setError(e instanceof Error ? e.message : 'Failed to load report'),
-      )
-      .finally(() => setLoading(false));
-  }, [reviewId]);
+  // Cached report: revisiting serves the cached report instantly instead of
+  // re-fetching and showing "Loading report…" on every mount.
+  const reportQuery = useQuery<DDReport>({
+    queryKey: ['dd', 'report', reviewId],
+    queryFn: () => api.getReport(reviewId),
+    retry: false,
+  });
+  const report = reportQuery.data ?? null;
+  const loading = reportQuery.isLoading;
+  const error = reportQuery.isError
+    ? reportQuery.error instanceof Error
+      ? reportQuery.error.message
+      : 'Failed to load report'
+    : '';
 
   if (loading) {
     return (
@@ -88,7 +88,7 @@ export function ReportViewer() {
         <div className="flex gap-3">
           <button
             onClick={() =>
-              navigate({ to: '/portfolio-dd/$reviewId', params: { reviewId } })
+              navigate({ to: '/due-diligence/$reviewId', params: { reviewId } })
             }
             className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
           >

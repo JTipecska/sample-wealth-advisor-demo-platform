@@ -40,6 +40,9 @@ export class ThemeSchedulerGenerateGeneralThemes extends Function {
           'us.anthropic.claude-sonnet-5',
         THEME_HOURS: '48',
         THEME_LIMIT: '6',
+        // Cap sources per crawl so the crawl+per-article Athena INSERTs finish
+        // within the 15-min Lambda timeout. 0/unset = uncapped.
+        THEME_CRAWL_MAX_SOURCES: '8',
       },
     });
   }
