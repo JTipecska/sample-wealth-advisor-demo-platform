@@ -141,12 +141,23 @@ Return JSON array:
     response = bedrock.converse(
         modelId=model_id,
         messages=[{"role": "user", "content": [{"text": prompt}]}],
-        inferenceConfig={"maxTokens": 4096},
+        inferenceConfig={"maxTokens": 8192},
     )
-    content = response["output"]["message"]["content"]
-    # Robustly extract the text block: newer models may return a reasoning
-    # block first, so content[0] is not guaranteed to carry "text".
-    content = next((b["text"] for b in content if isinstance(b, dict) and "text" in b), "")
+    blocks = response["output"]["message"]["content"]
+    stop_reason = response.get("stopReason")
+    # Concatenate all text blocks. Reasoning-capable models (e.g. claude-sonnet-5)
+    # emit a reasoningContent block (no "text") before the answer, and can exhaust
+    # the token budget on reasoning before producing any answer text. Joining the
+    # text blocks tolerates the reasoning block; an empty result means the answer
+    # was never emitted (usually stopReason=max_tokens) — log loudly rather than
+    # silently generating 0 themes.
+    content = "".join(b["text"] for b in blocks if isinstance(b, dict) and "text" in b)
+    if not content:
+        logger.error(
+            "Theme model returned no answer text (stopReason=%s) — a reasoning model may be "
+            "exhausting maxTokens before answering. Use a non-reasoning model or raise maxTokens.",
+            stop_reason,
+        )
 
     # Parse themes from response
     try:
@@ -156,7 +167,14 @@ Return JSON array:
     except (json.JSONDecodeError, ValueError):
         themes_data = []
 
-    logger.info("Bedrock identified %d themes", len(themes_data))
+    if themes_data:
+        logger.info("Bedrock identified %d themes", len(themes_data))
+    else:
+        logger.error(
+            "Bedrock identified 0 themes (stopReason=%s, answer_text_len=%d) — themes will not refresh",
+            stop_reason,
+            len(content),
+        )
 
     # 3. Score, rank, and save themes
     import uuid
