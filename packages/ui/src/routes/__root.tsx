@@ -3,11 +3,9 @@ import { ImprovedChatWidget } from '../components/ImprovedChatWidget';
 import CognitoAuth from '../components/CognitoAuth';
 import ApiProvider from '../components/ApiProvider';
 import RuntimeConfigProvider from '../components/RuntimeConfig';
-import {
-  QueryClient,
-  QueryClientProvider,
-  keepPreviousData,
-} from '@tanstack/react-query';
+import { QueryClient, keepPreviousData } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
+import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister';
 
 // Stale-while-revalidate defaults: serve cached data instantly, then check for
 // new data in the background and swap it in only once it has loaded — so
@@ -30,9 +28,25 @@ const queryClient = new QueryClient({
   },
 });
 
+// Persist the query cache to localStorage so a full reload / new tab is not
+// cold: the last-known data is rehydrated and shown instantly while it
+// revalidates in the background. maxAge matches gcTime; bump `buster` to
+// invalidate persisted caches after an incompatible data-shape change.
+const persister = createSyncStoragePersister({
+  storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+  key: 'wmp-query-cache',
+});
+
 export const Route = createRootRoute({
   component: () => (
-    <QueryClientProvider client={queryClient}>
+    <PersistQueryClientProvider
+      client={queryClient}
+      persistOptions={{
+        persister,
+        maxAge: 24 * 60 * 60 * 1000,
+        buster: 'wmp-v1',
+      }}
+    >
       <RuntimeConfigProvider>
         <CognitoAuth>
           <ApiProvider>
@@ -41,6 +55,6 @@ export const Route = createRootRoute({
           </ApiProvider>
         </CognitoAuth>
       </RuntimeConfigProvider>
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
   ),
 });
