@@ -42,8 +42,7 @@ export function ClientDetails() {
   const { clientId } = useParams({ strict: false });
   const navigate = useNavigate();
   const api = useApiClient();
-  const [client, setClient] = useState<Client | null>(null);
-  const [clientLoading, setClientLoading] = useState(true);
+  const apiOptions = useApi();
   const [holdings, setHoldings] = useState<any[]>([]);
   const [holdingsLoading, setHoldingsLoading] = useState(true);
   const [transactions, setTransactions] = useState<any[]>([]);
@@ -52,20 +51,11 @@ export function ClientDetails() {
   const [transactionsOffset, setTransactionsOffset] = useState(0);
   const [hasMoreHoldings, setHasMoreHoldings] = useState(true);
   const [hasMoreTransactions, setHasMoreTransactions] = useState(true);
-  const [marketThemes, setMarketThemes] = useState<StockThemes[]>([]);
-  const [themesLoading, setThemesLoading] = useState(true);
   const [expandedStock, setExpandedStock] = useState<string | null>(null);
   const [expandedThemeId, setExpandedThemeId] = useState<string | null>(null);
   const [selectedThemeId, setSelectedThemeId] = useState<string | null>(null);
   const [themeArticles, setThemeArticles] = useState<any[]>([]);
   const [articlesLoading, setArticlesLoading] = useState(false);
-  const [themesStale, setThemesStale] = useState<string | null>(null);
-  const [aumData, setAumData] = useState<AUMDataPoint[]>([]);
-  const [aumLoading, setAumLoading] = useState(true);
-  const [assetAllocation, setAssetAllocation] = useState<any[]>([]);
-  const [allocationLoading, setAllocationLoading] = useState(true);
-  const [sectorAllocation, setSectorAllocation] = useState<any[]>([]);
-  const apiOptions = useApi();
   const [holdingsSortField, setHoldingsSortField] = useState<string | null>(
     null,
   );
@@ -79,37 +69,98 @@ export function ClientDetails() {
     'asc' | 'desc'
   >('asc');
 
+  // Cached per-client reads via TanStack Query: revisits are served from cache
+  // (near-instant), in-flight duplicates are deduped, and the manual
+  // loading/error bookkeeping is gone. staleTime reflects how static each
+  // dataset is (allocation/themes/details rarely change; AUM a bit more often).
+  const FIVE_MIN = 5 * 60 * 1000;
+  const THIRTY_MIN = 30 * 60 * 1000;
+
+  const clientQuery = useQuery({
+    ...apiOptions.clientDetails.queryOptions({ clientId: clientId as string }),
+    enabled: !!clientId,
+    staleTime: THIRTY_MIN,
+  });
+  const client: Client | null = clientQuery.data
+    ? {
+        id: clientQuery.data.clientId,
+        name: clientQuery.data.customerName,
+        email: clientQuery.data.email,
+        phone: clientQuery.data.phone,
+        segment: clientQuery.data.segment,
+        aum: clientQuery.data.aum,
+        risk_tolerance: clientQuery.data.riskTolerance,
+        interaction_sentiment: clientQuery.data.interactionSentiment,
+        client_city: clientQuery.data.clientCity || '',
+        client_state: clientQuery.data.clientState || '',
+        client_created_date: clientQuery.data.clientCreatedDate || '',
+      }
+    : null;
+  const clientLoading = clientQuery.isLoading;
+
+  const themesQuery = useQuery({
+    ...apiOptions.clientThemes.queryOptions({
+      clientId: clientId as string,
+      limit: 15,
+    }),
+    enabled: !!clientId,
+    staleTime: THIRTY_MIN,
+  });
+  const marketThemes: StockThemes[] = themesQuery.data?.stockThemes ?? [];
+  const themesStale = themesQuery.data?.staleMessage ?? null;
+  const themesLoading = themesQuery.isLoading;
+
+  const aumQuery = useQuery({
+    ...apiOptions.clientAum.queryOptions({
+      clientId: clientId as string,
+      months: 12,
+    }),
+    enabled: !!clientId,
+    staleTime: FIVE_MIN,
+  });
+  const parsedAum: any =
+    typeof aumQuery.data === 'string'
+      ? JSON.parse(aumQuery.data)
+      : aumQuery.data;
+  const aumData: AUMDataPoint[] = parsedAum?.aum_data ?? [];
+  const aumLoading = aumQuery.isLoading;
+
+  const allocationQuery = useQuery({
+    ...apiOptions.clientAssetAllocation.queryOptions({
+      clientId: clientId as string,
+    }),
+    enabled: !!clientId,
+    staleTime: THIRTY_MIN,
+  });
+  const parsedAllocation: any =
+    typeof allocationQuery.data === 'string'
+      ? JSON.parse(allocationQuery.data)
+      : allocationQuery.data;
+  const assetAllocation: any[] =
+    parsedAllocation?.success && parsedAllocation?.allocations
+      ? parsedAllocation.allocations
+      : [];
+  const allocationLoading = allocationQuery.isLoading;
+
+  // Static demo sector data (previously hardcoded inside the fetch handler).
+  const sectorAllocation = [
+    { name: 'Technology', value: 30, amount: 850000 },
+    { name: 'Financials', value: 25, amount: 700000 },
+    { name: 'Consumer', value: 20, amount: 560000 },
+    { name: 'Healthcare', value: 15, amount: 420000 },
+  ];
+
+  // Auto-expand the first stock whenever a fresh themes payload arrives.
+  useEffect(() => {
+    const firstTicker = themesQuery.data?.stockThemes?.[0]?.ticker;
+    if (firstTicker) setExpandedStock(firstTicker);
+  }, [themesQuery.data]);
+
+  // Holdings and transactions retain manual pagination (rows accumulate across
+  // offsets via the Next/Previous controls), so they stay on a direct fetch.
   useEffect(() => {
     if (!clientId || !api) return;
 
-    // Fetch client details
-    const fetchClientDetails = async () => {
-      setClientLoading(true);
-      try {
-        const clientData = await api.clientDetails({ clientId });
-        const parsedClientData =
-          typeof clientData === 'string' ? JSON.parse(clientData) : clientData;
-        setClient({
-          id: parsedClientData.clientId,
-          name: parsedClientData.customerName,
-          email: parsedClientData.email,
-          phone: parsedClientData.phone,
-          segment: parsedClientData.segment,
-          aum: parsedClientData.aum,
-          risk_tolerance: parsedClientData.riskTolerance,
-          interaction_sentiment: parsedClientData.interactionSentiment,
-          client_city: parsedClientData.clientCity || '',
-          client_state: parsedClientData.clientState || '',
-          client_created_date: parsedClientData.clientCreatedDate || '',
-        });
-      } catch (error) {
-        console.error('Error fetching client:', error);
-      } finally {
-        setClientLoading(false);
-      }
-    };
-
-    // Fetch holdings
     const fetchHoldings = async () => {
       setHoldingsLoading(true);
       try {
@@ -127,7 +178,6 @@ export function ClientDetails() {
       }
     };
 
-    // Fetch transactions
     const fetchTransactions = async () => {
       setTransactionsLoading(true);
       try {
@@ -150,72 +200,8 @@ export function ClientDetails() {
       }
     };
 
-    // Fetch portfolio themes (v2 - grouped by stock)
-    const fetchThemes = async () => {
-      setThemesLoading(true);
-      try {
-        const data = await api.clientThemes({ clientId, limit: 15 });
-        setMarketThemes(data.stockThemes || []);
-        setThemesStale(data.staleMessage || null);
-        if (data.stockThemes && data.stockThemes.length > 0) {
-          setExpandedStock(data.stockThemes[0].ticker);
-        }
-      } catch (error) {
-        console.error('Error fetching themes:', error);
-      } finally {
-        setThemesLoading(false);
-      }
-    };
-
-    // Fetch AUM data
-    const fetchAumData = async () => {
-      setAumLoading(true);
-      try {
-        const aumDataResponse = await api.clientAum({ clientId, months: 12 });
-        const parsedAum =
-          typeof aumDataResponse === 'string'
-            ? JSON.parse(aumDataResponse)
-            : aumDataResponse;
-        setAumData(parsedAum.aum_data || []);
-      } catch (error) {
-        console.error('Error fetching AUM data:', error);
-      } finally {
-        setAumLoading(false);
-      }
-    };
-
-    // Fetch asset allocation
-    const fetchAllocation = async () => {
-      setAllocationLoading(true);
-      try {
-        const allocationData = await api.clientAssetAllocation({ clientId });
-        const parsedAllocation =
-          typeof allocationData === 'string'
-            ? JSON.parse(allocationData)
-            : allocationData;
-        if (parsedAllocation.success && parsedAllocation.allocations) {
-          setAssetAllocation(parsedAllocation.allocations);
-        }
-        setSectorAllocation([
-          { name: 'Technology', value: 30, amount: 850000 },
-          { name: 'Financials', value: 25, amount: 700000 },
-          { name: 'Consumer', value: 20, amount: 560000 },
-          { name: 'Healthcare', value: 15, amount: 420000 },
-        ]);
-      } catch (error) {
-        console.error('Error fetching allocation:', error);
-      } finally {
-        setAllocationLoading(false);
-      }
-    };
-
-    // Execute all fetches in parallel
-    fetchClientDetails();
     fetchHoldings();
     fetchTransactions();
-    fetchThemes();
-    fetchAumData();
-    fetchAllocation();
   }, [clientId, api]);
 
   const reportQuery = useQuery({

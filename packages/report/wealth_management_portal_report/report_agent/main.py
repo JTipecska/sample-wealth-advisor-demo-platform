@@ -2,7 +2,6 @@ import logging
 import os
 import time
 import uuid
-from datetime import UTC, datetime
 
 import boto3
 import uvicorn
@@ -11,7 +10,7 @@ from fastapi import HTTPException
 from pydantic import BaseModel
 
 from .init import app
-from .tools import _get_mcp_client, fetch_report_data, generate_next_best_action, save_report_via_mcp
+from .tools import fetch_report_data, generate_next_best_action
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +24,7 @@ async def invoke(input: InvokeInput) -> dict:
     """Entry point for synchronous report generation"""
     t_start = time.time()
     import sys
+
     print(f"[REPORT-AGENT] /invocations called: client_id={input.client_id}", file=sys.stderr, flush=True)
     try:
         logger.info("Request received: client_id=%s", input.client_id)
@@ -76,6 +76,7 @@ async def invoke(input: InvokeInput) -> dict:
         from wealth_management_portal_portfolio_data_access.repositories.data_api_base_repository import (
             DataApiBaseRepository,
         )
+
         _repo = DataApiBaseRepository()
         _nba = (next_best_action or "").replace("'", "''")[:500]
         _repo._execute_and_wait(

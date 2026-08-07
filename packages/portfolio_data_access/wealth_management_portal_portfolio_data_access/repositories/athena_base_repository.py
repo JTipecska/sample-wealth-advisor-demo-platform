@@ -43,7 +43,10 @@ class AthenaBaseRepository:
         for param in parameters:
             name = param["name"]
             value = param["value"]
-            safe_value = re.sub(r"[^\w\s\-._]", "", value)
+            # Allowlist must stay in sync with common_market_events/redshift.py's
+            # sanitizer. Keep ':' '/' '+' so ISO timestamps (e.g. '2026-08-05
+            # 22:34:39') are not corrupted. TODO: extract a single shared helper.
+            safe_value = re.sub(r"[^\w\s\-._:/+]", "", value)
             if safe_value.isdigit():
                 sql = sql.replace(f":{name}", safe_value)
             else:

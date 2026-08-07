@@ -115,7 +115,15 @@ async def draft_report(task: DraftTask) -> ReportDraft:
     prompt = _build_draft_prompt(task)
     try:
         result = _invoke_bedrock(prompt)
-        sections = [ReportSection(**s) for s in result.get("sections", [])]
+        # Parse sections resiliently: a single malformed section (e.g. the LLM
+        # omitting a required field) must not discard the entire report draft.
+        sections = []
+        for s in result.get("sections", []):
+            try:
+                sections.append(ReportSection(**s))
+            except Exception as sec_exc:
+                cat = s.get("category") if isinstance(s, dict) else s
+                logger.warning("Skipping malformed report section %r: %s", cat, sec_exc)
         from datetime import datetime
 
         return ReportDraft(

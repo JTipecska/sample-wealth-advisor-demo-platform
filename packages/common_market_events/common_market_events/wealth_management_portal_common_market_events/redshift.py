@@ -502,17 +502,38 @@ class RedshiftClient:
         Returns:
             List of dicts with ticker, security_name, and aum_value
         """
-        sql = f"""
-        SELECT 
-            ticker,
-            security_name,
-            SUM(quantity * current_price) as aum_value
-        FROM public.client_portfolio_holdings
-        WHERE client_id = :client_id
-        GROUP BY ticker, security_name
-        ORDER BY aum_value DESC
-        LIMIT {int(limit)}
-        """
+        if self._use_athena:
+            # public.client_portfolio_holdings is a Redshift view that does not
+            # exist as an Iceberg table, so on Athena we join the base tables
+            # directly (same pattern as get_client_portfolio_tickers). Without
+            # this branch the query resolves to schema 'default' and fails with
+            # SCHEMA_NOT_FOUND, which crashes the whole portfolio-themes handler.
+            sql = f"""
+            SELECT
+                s.ticker,
+                s.security_name,
+                SUM(h.quantity * h.current_price) AS aum_value
+            FROM holdings h
+            JOIN portfolios pf ON CAST(h.portfolio_id AS varchar) = CAST(pf.portfolio_id AS varchar)
+            JOIN accounts acc ON CAST(pf.account_id AS varchar) = CAST(acc.account_id AS varchar)
+            JOIN securities s ON CAST(h.security_id AS varchar) = CAST(s.security_id AS varchar)
+            WHERE CAST(acc.client_id AS varchar) = :client_id
+            GROUP BY s.ticker, s.security_name
+            ORDER BY aum_value DESC
+            LIMIT {int(limit)}
+            """
+        else:
+            sql = f"""
+            SELECT 
+                ticker,
+                security_name,
+                SUM(quantity * current_price) as aum_value
+            FROM public.client_portfolio_holdings
+            WHERE client_id = :client_id
+            GROUP BY ticker, security_name
+            ORDER BY aum_value DESC
+            LIMIT {int(limit)}
+            """
         parameters = [{"name": "client_id", "value": client_id}]
         statement_id = self.execute_statement(sql, parameters=parameters)
         rows = self.get_statement_result(statement_id)

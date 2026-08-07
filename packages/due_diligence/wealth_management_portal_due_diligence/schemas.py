@@ -89,7 +89,10 @@ class ReportSection(BaseModel):
     category: str
     title: str
     content: str
-    criteria_covered: list[str]
+    # Descriptive metadata (which criteria this section covers). The report
+    # drafter's LLM sometimes omits it; default to empty so one missing field
+    # does not fail validation and collapse the entire report draft.
+    criteria_covered: list[str] = Field(default_factory=list)
 
 
 class ReportDraft(BaseModel):
