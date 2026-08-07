@@ -1,5 +1,6 @@
 """Base repository for Athena query access to S3 Tables (Iceberg)."""
 
+import os
 import re
 import time
 
@@ -131,8 +132,8 @@ class AthenaBaseRepository:
         else:
             raise Exception("Athena query timed out")
 
-        result_rows = self.client.get_query_results(QueryExecutionId=query_execution_id).get("ResultSet", {}).get(
-            "Rows", []
+        result_rows = (
+            self.client.get_query_results(QueryExecutionId=query_execution_id).get("ResultSet", {}).get("Rows", [])
         )
         if not result_rows:
             return []
@@ -168,6 +169,21 @@ class AthenaBaseRepository:
         }
         if self.output_location:
             start_kwargs["ResultConfiguration"] = {"OutputLocation": self.output_location}
+        # Athena result reuse (engine v3): identical read queries within the
+        # window return cached results in ~ms instead of re-scanning S3.
+        # Deterministic API reads (dashboards, lists, client detail) benefit
+        # most. ATHENA_RESULT_REUSE_MINUTES=0 disables it.
+        try:
+            _reuse_min = int(os.environ.get("ATHENA_RESULT_REUSE_MINUTES", "10"))
+        except ValueError:
+            _reuse_min = 10
+        if _reuse_min > 0:
+            start_kwargs["ResultReuseConfiguration"] = {
+                "ResultReuseByAgeConfiguration": {
+                    "Enabled": True,
+                    "MaxAgeInMinutes": _reuse_min,
+                }
+            }
 
         response = self.client.start_query_execution(**start_kwargs)
         query_execution_id = response["QueryExecutionId"]
