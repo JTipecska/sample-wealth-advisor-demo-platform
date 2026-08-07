@@ -249,7 +249,9 @@ export class PortfolioDataGateway extends Construct {
           'kms:ReEncrypt*',
           'kms:DescribeKey',
         ],
-        resources: [`arn:aws:kms:${Stack.of(this).region}:${Stack.of(this).account}:key/*`],
+        resources: [
+          `arn:aws:kms:${Stack.of(this).region}:${Stack.of(this).account}:key/*`,
+        ],
       }),
     );
 
