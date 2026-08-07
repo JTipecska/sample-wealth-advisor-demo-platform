@@ -95,3 +95,13 @@ class DataApiBaseRepository:
         max_attempts: int = 60,
     ) -> list[dict]:
         return self._delegate._execute_and_wait(sql, parameters, poll_interval, max_attempts)
+
+    def _execute_parameterized(
+        self,
+        sql: str,
+        values: list,
+        poll_interval: float = 0.5,
+        max_attempts: int = 120,
+    ) -> list[dict]:
+        """Safe positional-parameter (?) execution — Athena engine only."""
+        return self._delegate._execute_parameterized(sql, values, poll_interval, max_attempts)

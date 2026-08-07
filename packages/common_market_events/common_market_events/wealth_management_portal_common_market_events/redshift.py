@@ -247,6 +247,46 @@ class RedshiftClient:
         """Build a named parameter, using a sentinel for empty/None values."""
         return {"name": name, "value": value if value else "__NONE__"}
 
+    def _athena_param_insert(self, sql_named: str, parameters: list[dict]) -> None:
+        """Run a named-placeholder INSERT on Athena via ExecutionParameters (safe
+        server-side binding — no string interpolation, so commas/quotes/newlines
+        in text are preserved). Reuses the existing NULLIF/CAST SQL: each ``:name``
+        is replaced with ``?`` in the order it appears and bound to its value.
+        ISO timestamps are normalized to Athena's 'YYYY-MM-DD HH:MM:SS' form.
+        """
+        values_by_name = {p["name"]: p["value"] for p in parameters}
+        ordered: list[str] = []
+
+        def _sub(match):
+            name = match.group(1)
+            val = str(values_by_name.get(name, "__NONE__"))
+            ts = re.match(r"^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2})", val)
+            if ts:
+                val = f"{ts.group(1)} {ts.group(2)}"
+            # Athena rejects empty-string parameters; fall back to the NULL sentinel.
+            ordered.append(val if val != "" else "__NONE__")
+            return "?"
+
+        sql_pos = re.sub(r":([a-zA-Z_][a-zA-Z0-9_]*)", _sub, sql_named)
+        sql_pos = self._qualify_tables(re.sub(r"(?i)\bAS\s+FLOAT\b", "AS DOUBLE", sql_pos.replace("public.", "")))
+
+        start_kwargs: dict = {
+            "QueryString": sql_pos,
+            "WorkGroup": self._athena_workgroup,
+            "ExecutionParameters": ordered,
+        }
+        if self._athena_output:
+            start_kwargs["ResultConfiguration"] = {"OutputLocation": self._athena_output}
+        qid = self.client.start_query_execution(**start_kwargs)["QueryExecutionId"]
+        for _ in range(60):
+            status = self.client.get_query_execution(QueryExecutionId=qid)["QueryExecution"]["Status"]
+            if status["State"] == "SUCCEEDED":
+                return
+            if status["State"] in ("FAILED", "CANCELLED"):
+                raise Exception(f"Athena parameterized insert failed: {status.get('StateChangeReason', 'Unknown')}")
+            time.sleep(0.3)
+        raise Exception("Athena parameterized insert timed out")
+
     def insert_article(self, article: Article) -> None:
         """Insert an article into Redshift."""
         sql = """
@@ -318,7 +358,10 @@ class RedshiftClient:
             {"name": "matched_tickers", "value": json.dumps(theme.matched_tickers) if theme.matched_tickers else "[]"},
             p("relevance_reasoning", theme.relevance_reasoning),
         ]
-        self.execute_statement(sql, parameters=parameters)
+        if self._use_athena:
+            self._athena_param_insert(sql, parameters)
+        else:
+            self.execute_statement(sql, parameters=parameters)
 
     def insert_theme_article_association(self, association: ThemeArticleAssociation) -> None:
         """Insert a theme-article association."""

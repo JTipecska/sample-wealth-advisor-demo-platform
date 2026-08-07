@@ -33,9 +33,18 @@ def _crawl_articles_via_mcp(mcp_arn: str) -> dict:
     mcp_client = MCPClient(
         lambda: streamablehttp_client(url, auth=SigV4HTTPXAuth(creds, region), timeout=170, terminate_on_close=False)
     )
+    # Cap the number of sources crawled per run. Each article is persisted via a
+    # separate Athena INSERT (seconds each), so an uncapped crawl against a stale
+    # table produces hundreds of new articles and blows the Lambda timeout. Capping
+    # keeps each run inside the 900s budget; dedup means daily runs still accumulate
+    # coverage. THEME_CRAWL_MAX_SOURCES=0/unset means uncapped.
+    args: dict = {"rss_only": True}
+    _max_sources = os.environ.get("THEME_CRAWL_MAX_SOURCES", "")
+    if _max_sources.isdigit() and int(_max_sources) > 0:
+        args["max_sources"] = int(_max_sources)
     try:
         with mcp_client as client:
-            result = client.call_tool_sync("save_articles", "save_articles_to_redshift", {"rss_only": True})
+            result = client.call_tool_sync("save_articles", "save_articles_to_redshift", args)
         return json.loads(result["content"][0]["text"])
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -134,7 +143,10 @@ Return JSON array:
         messages=[{"role": "user", "content": [{"text": prompt}]}],
         inferenceConfig={"maxTokens": 4096},
     )
-    content = response["output"]["message"]["content"][0]["text"]
+    content = response["output"]["message"]["content"]
+    # Robustly extract the text block: newer models may return a reasoning
+    # block first, so content[0] is not guaranteed to carry "text".
+    content = next((b["text"] for b in content if isinstance(b, dict) and "text" in b), "")
 
     # Parse themes from response
     try:
@@ -211,13 +223,25 @@ def lambda_handler(event: dict, context: LambdaContext) -> dict:
         limit = int(os.environ.get("THEME_LIMIT", "6"))
 
         # Step 1: Crawl fresh articles via WebCrawlerMcp (best-effort, may timeout)
+        crawl_ok: bool | None = None
+        crawl_error: str | None = None
+        articles_saved = 0
         if mcp_arn:
             logger.info("Invoking WebCrawlerMcp to crawl articles")
             crawl_data = _crawl_articles_via_mcp(mcp_arn)
-            if not crawl_data.get("success"):
-                logger.warning("Crawl had issues: %s — continuing with existing articles", crawl_data.get("error"))
+            crawl_ok = bool(crawl_data.get("success"))
+            if not crawl_ok:
+                crawl_error = crawl_data.get("error")
+                # LOUD: a failed crawl means themes fall back to stale data.
+                # Log at ERROR (was a swallowed WARNING) and surface the status
+                # in the response so silent staleness cannot recur unnoticed.
+                logger.error(
+                    "Article crawl FAILED — themes will fall back to stale data. error=%s",
+                    crawl_error,
+                )
             else:
-                logger.info("Crawl saved %d articles", crawl_data.get("articles_saved", 0))
+                articles_saved = crawl_data.get("articles_saved", 0)
+                logger.info("Crawl saved %d articles", articles_saved)
 
         # Step 2: Generate themes directly (no MCP call — avoids 180s sandbox timeout)
         logger.info("Generating themes locally (hours=%d, limit=%d)", hours, limit)
@@ -230,6 +254,9 @@ def lambda_handler(event: dict, context: LambdaContext) -> dict:
         return {
             "statusCode": 200,
             "themes_generated": result.get("themes_generated", 0),
+            "articles_saved": articles_saved,
+            "crawl_ok": crawl_ok,
+            "crawl_error": crawl_error,
             "hours": hours,
             "timestamp": datetime.now().isoformat(),
             "summary": result.get("message", "Theme generation completed"),

@@ -100,9 +100,7 @@ def test_handler_missing_arn_skips_crawl():
 def test_handler_crawl_exception_continues():
     """Crawl raises an exception — handler catches it gracefully and still generates themes."""
     theme_result = {"success": True, "themes_generated": 3, "message": "done"}
-    crawl_mock, theme_mock = _patch_both(
-        crawl_side_effect=Exception("Connection refused"), theme_result=theme_result
-    )
+    crawl_mock, theme_mock = _patch_both(crawl_side_effect=Exception("Connection refused"), theme_result=theme_result)
     with crawl_mock, theme_mock:
         result = lambda_handler({}, MagicMock())
 
