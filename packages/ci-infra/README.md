@@ -105,31 +105,39 @@ See `SETUP.md` for full setup instructions including GitLab variable configurati
 
 CodeBuild environment variables are sourced from SSM Parameter Store:
 
-| Parameter                                              | Description                        |
-|--------------------------------------------------------|------------------------------------|
-| `/wealth-management-portal/aws-region`                 | AWS region                         |
-| `/wealth-management-portal/redshift-vpc-id`            | VPC ID for Redshift access         |
-| `/wealth-management-portal/private-subnet-ids`         | Private subnet IDs (comma-sep)     |
-| `/wealth-management-portal/redshift-security-group-id` | Redshift security group ID         |
-| `/wealth-management-portal/private-route-table-id`     | Private route table ID             |
-| `/wealth-management-portal/redshift-workgroup`         | Redshift Serverless workgroup name |
-| `/wealth-management-portal/redshift-database`          | Redshift database name             |
-| `/wealth-management-portal/ses-sender-email`           | SES verified sender email          |
-| `/wealth-management-portal/report-bedrock-model-id`    | Bedrock model ID for reports       |
-| `/wealth-management-portal/tavily-api-key`             | Tavily API key for web search      |
-| `/wealth-management-portal/theme-bedrock-model-id`     | Bedrock model ID for themes        |
-| `/wealth-management-portal/deploy-bastion`             | Whether to deploy bastion host     |
-| `/wealth-management-portal/private-subnet-az`          | Private subnet availability zone   |
-| `/wealth-management-portal/enable-compliance-reporting`| Enable compliance reporting        |
-| `/wealth-management-portal/compliance-reporting-bucket`| S3 bucket for compliance reports   |
-| `/wealth-management-portal/neptune-graph-id`           | Neptune graph ID (CDK-managed — do not set manually) |
+| Parameter                                               | Description                                          |
+| ------------------------------------------------------- | ---------------------------------------------------- |
+| `/wealth-management-portal/aws-region`                  | AWS region                                           |
+| `/wealth-management-portal/redshift-vpc-id`             | VPC ID for Redshift access                           |
+| `/wealth-management-portal/private-subnet-ids`          | Private subnet IDs (comma-sep)                       |
+| `/wealth-management-portal/redshift-security-group-id`  | Redshift security group ID                           |
+| `/wealth-management-portal/private-route-table-id`      | Private route table ID                               |
+| `/wealth-management-portal/redshift-workgroup`          | Redshift Serverless workgroup name                   |
+| `/wealth-management-portal/redshift-database`           | Redshift database name                               |
+| `/wealth-management-portal/ses-sender-email`            | SES verified sender email                            |
+| `/wealth-management-portal/report-bedrock-model-id`     | Bedrock model ID for reports                         |
+| `/wealth-management-portal/tavily-api-key`              | Tavily API key for web search                        |
+| `/wealth-management-portal/theme-bedrock-model-id`      | Bedrock model ID for themes                          |
+| `/wealth-management-portal/deploy-bastion`              | Whether to deploy bastion host                       |
+| `/wealth-management-portal/private-subnet-az`           | Private subnet availability zone                     |
+| `/wealth-management-portal/enable-compliance-reporting` | Enable compliance reporting                          |
+| `/wealth-management-portal/compliance-reporting-bucket` | S3 bucket for compliance reports                     |
+| `/wealth-management-portal/neptune-graph-id`            | Neptune graph ID (CDK-managed — do not set manually) |
 
 CDK stack parameters (set at deploy time or via defaults):
 
-| Parameter      | Default        | Description                  |
-|----------------|----------------|------------------------------|
-| `GitLabGroup`  | `taehyunh`     | GitLab group for trust policy|
-| `GitLabProject`| `wealth-management-portal` | GitLab project name |
+| Parameter             | Default                    | Description                                                   |
+| --------------------- | -------------------------- | ------------------------------------------------------------- |
+| `GitLabGroup`         | `taehyunh`                 | GitLab group for trust policy                                 |
+| `GitLabProject`       | `wealth-management-portal` | GitLab project name                                           |
+| `GitLabRunnerRoleArn` | _(required)_               | GitLab runner IAM role ARN; pass via `GITLAB_RUNNER_ROLE_ARN` |
+
+Example:
+
+```bash
+export GITLAB_RUNNER_ROLE_ARN="arn:aws:iam::<ACCOUNT_ID>:role/gitlab-runners-prod"
+pnpm nx deploy @wealth-management-portal/ci-infra
+```
 
 ## Dependencies
 

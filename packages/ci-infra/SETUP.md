@@ -12,27 +12,34 @@
 One-time bootstrap:
 
 ```sh
+pnpm nx bootstrap @wealth-management-portal/ci-infra
+```
+
+Set the GitLab runner role ARN before deploying. Keep the account ID in the environment rather than committing it to the repository:
+
+```sh
+export GITLAB_RUNNER_ROLE_ARN="arn:aws:iam::<ACCOUNT_ID>:role/gitlab-runners-prod"
 pnpm nx deploy @wealth-management-portal/ci-infra
 ```
 
 Note the stack outputs:
 
-| Output                  | Used For                          |
-| ----------------------- | --------------------------------- |
-| `GitLabTriggerRoleArn`  | GitLab OIDC role assumption       |
-| `SourceBucketName`      | S3 bucket for source artifacts    |
-| `CodeBuildProjectName`  | CodeBuild project for deployments |
+| Output                 | Used For                          |
+| ---------------------- | --------------------------------- |
+| `GitLabTriggerRoleArn` | GitLab OIDC role assumption       |
+| `SourceBucketName`     | S3 bucket for source artifacts    |
+| `CodeBuildProjectName` | CodeBuild project for deployments |
 
 ## 3. Configure GitLab
 
 In your GitLab project under **Settings → CI/CD → Variables**, add:
 
-| Variable                | Value                                      | Notes                          |
-| ----------------------- | ------------------------------------------ | ------------------------------ |
-| `AWS_CREDS_TARGET_ROLE` | `GitLabTriggerRoleArn` from stack outputs  | Required for credential vendor |
-| `AWS_DEFAULT_REGION`    | `us-west-2`                                | AWS region for all API calls   |
-| `SOURCE_BUCKET`         | `SourceBucketName` from stack outputs      | S3 bucket for source artifacts |
-| `CODEBUILD_PROJECT`     | `CodeBuildProjectName` from stack outputs  | CodeBuild project name         |
+| Variable                | Value                                     | Notes                          |
+| ----------------------- | ----------------------------------------- | ------------------------------ |
+| `AWS_CREDS_TARGET_ROLE` | `GitLabTriggerRoleArn` from stack outputs | Required for credential vendor |
+| `AWS_DEFAULT_REGION`    | `us-west-2`                               | AWS region for all API calls   |
+| `SOURCE_BUCKET`         | `SourceBucketName` from stack outputs     | S3 bucket for source artifacts |
+| `CODEBUILD_PROJECT`     | `CodeBuildProjectName` from stack outputs | CodeBuild project name         |
 
 These are referenced in `.gitlab-ci.yml`.
 
