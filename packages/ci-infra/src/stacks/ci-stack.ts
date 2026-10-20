@@ -25,6 +25,14 @@ export class CiStack extends Stack {
       default: 'wealth-management-portal',
     });
 
+    // IAM role ARN of the GitLab runner allowed to assume the trigger role.
+    // No default — must be supplied at deploy time so no account ID is committed.
+    const gitlabRunnerRoleArn = new CfnParameter(this, 'GitLabRunnerRoleArn', {
+      type: 'String',
+      description:
+        'IAM role ARN of the GitLab runner (Credential Vendor) permitted to assume the CodeBuild trigger role, e.g. arn:aws:iam::<ACCOUNT_ID>:role/gitlab-runners-prod',
+    });
+
     // S3 source bucket
     const sourceBucket = new s3.Bucket(this, 'SourceBucket', {
       lifecycleRules: [
@@ -170,7 +178,7 @@ export class CiStack extends Stack {
 
     // GitLab trigger role (assumed by Credential Vendor)
     const triggerPrincipal = new iam.ArnPrincipal(
-      'arn:aws:iam::979517299116:role/gitlab-runners-prod',
+      gitlabRunnerRoleArn.valueAsString,
     ).withConditions({
       StringEquals: {
         'aws:PrincipalTag/GitLab:Group': gitlabGroup.valueAsString,
@@ -188,11 +196,7 @@ export class CiStack extends Stack {
     triggerRole.assumeRolePolicy!.addStatements(
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
-        principals: [
-          new iam.ArnPrincipal(
-            'arn:aws:iam::979517299116:role/gitlab-runners-prod',
-          ),
-        ],
+        principals: [new iam.ArnPrincipal(gitlabRunnerRoleArn.valueAsString)],
         actions: ['sts:TagSession'],
       }),
     );
