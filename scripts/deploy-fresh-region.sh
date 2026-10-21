@@ -37,27 +37,41 @@ if ! command -v pnpm &>/dev/null; then
   echo "ERROR: pnpm not found. Install it first." >&2; exit 1
 fi
 
-# Verify AWS credentials are valid
+# Verify AWS credentials are valid and explicitly target the intended account.
+EXPECTED_AWS_ACCOUNT_ID="${EXPECTED_AWS_ACCOUNT_ID:?Set EXPECTED_AWS_ACCOUNT_ID to the intended 12-digit AWS account before deploying}"
 AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text 2>/dev/null) || {
   echo "ERROR: AWS credentials not configured or expired." >&2
-  echo "  Run: isengardcli credentials --awscli $AWS_ACCOUNT_ID --role Admin --update --profile default" >&2
+  echo "  Refresh credentials for the intended account, then retry." >&2
   exit 1
 }
+if [[ "$AWS_ACCOUNT_ID" != "$EXPECTED_AWS_ACCOUNT_ID" ]]; then
+  echo "ERROR: AWS account mismatch. Expected $EXPECTED_AWS_ACCOUNT_ID, got $AWS_ACCOUNT_ID." >&2
+  exit 1
+fi
 echo "  Account: $AWS_ACCOUNT_ID"
 echo "  Region:  $TARGET_REGION"
 echo ""
+
+# Update one KEY=value entry using portable sed syntax.
+replace_env_value() {
+  local key="$1" value="$2"
+  if grep -q "^${key}=" "$ENV_FILE"; then
+    if [[ "$OSTYPE" == darwin* ]]; then
+      sed -i '' "s|^${key}=.*|${key}=${value}|" "$ENV_FILE"
+    else
+      sed -i "s|^${key}=.*|${key}=${value}|" "$ENV_FILE"
+    fi
+  else
+    echo "${key}=${value}" >> "$ENV_FILE"
+  fi
+}
 
 # ─── Phase 0: Update .env with target region ─────────────────────────────────
 echo "▶ Phase 0: Configuring .env for $TARGET_REGION"
 
 ENV_FILE="$REPO_ROOT/.env"
 if [[ -f "$ENV_FILE" ]]; then
-  # Update region in existing .env
-  if grep -q "^AWS_REGION=" "$ENV_FILE"; then
-    sed -i '' "s|^AWS_REGION=.*|AWS_REGION=$TARGET_REGION|" "$ENV_FILE"
-  else
-    echo "AWS_REGION=$TARGET_REGION" >> "$ENV_FILE"
-  fi
+  replace_env_value "AWS_REGION" "$TARGET_REGION"
 else
   echo "AWS_REGION=$TARGET_REGION" > "$ENV_FILE"
 fi
@@ -164,7 +178,11 @@ update_env() {
   local key="$1" value="$2"
   if [[ -n "$value" && "$value" != "None" ]]; then
     if grep -q "^${key}=" "$ENV_FILE"; then
-      sed -i '' "s|^${key}=.*|${key}=${value}|" "$ENV_FILE"
+      if [[ "$OSTYPE" == darwin* ]]; then
+        sed -i '' "s|^${key}=.*|${key}=${value}|" "$ENV_FILE"
+      else
+        sed -i "s|^${key}=.*|${key}=${value}|" "$ENV_FILE"
+      fi
     else
       echo "${key}=${value}" >> "$ENV_FILE"
     fi

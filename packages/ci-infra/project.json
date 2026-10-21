@@ -48,14 +48,14 @@
       "dependsOn": ["compile"],
       "options": {
         "cwd": "packages/ci-infra",
-        "command": "cdk deploy --require-approval=never --parameters GitLabRunnerRoleArn=$GITLAB_RUNNER_ROLE_ARN \"wealth-management-portal-ci-infra/**\""
+        "command": "cdk deploy --require-approval=never \"wealth-management-portal-ci-infra/**\""
       }
     },
     "deploy-ci": {
       "executor": "nx:run-commands",
       "options": {
         "cwd": "packages/ci-infra",
-        "command": "cdk deploy --require-approval=never --parameters GitLabRunnerRoleArn=$GITLAB_RUNNER_ROLE_ARN --app ../../dist/packages/ci-infra/cdk.out"
+        "command": "cdk deploy --require-approval=never --app ../../dist/packages/ci-infra/cdk.out"
       }
     },
     "destroy": {

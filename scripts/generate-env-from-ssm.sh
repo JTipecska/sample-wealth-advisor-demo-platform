@@ -12,6 +12,7 @@ ENV_FILE="$SCRIPT_DIR/../.env"
 # When running locally (outside CodeBuild), these env vars won't be set.
 # Resolve them from SSM or AWS CLI config so the script is hands-free.
 AWS_REGION="${AWS_REGION:-$(aws configure get region 2>/dev/null || echo "us-west-2")}"
+SSM_CONFIG_REGION="${SSM_CONFIG_REGION:-${AWS_DEFAULT_REGION:-$AWS_REGION}}"
 
 # Fetch a single SSM parameter, returns empty string on failure
 fetch_ssm() {
@@ -20,9 +21,16 @@ fetch_ssm() {
     --region "${AWS_REGION}" 2>/dev/null || echo ""
 }
 
+# Fetch a central configuration parameter from SSM, returning empty on failure.
+fetch_config_ssm() {
+  aws ssm get-parameter --name "$1" --with-decryption \
+    --query 'Parameter.Value' --output text \
+    --region "${SSM_CONFIG_REGION}" 2>/dev/null || echo ""
+}
+
 # Resolve the data-platform app/env names (needed to build SSM paths)
-APP_NAME="${APP_NAME:-$(fetch_ssm /wealth-management-portal/platform/app-name)}"
-ENV_NAME="${ENV_NAME:-$(fetch_ssm /wealth-management-portal/platform/env-name)}"
+APP_NAME="${APP_NAME:-$(fetch_config_ssm /wealth-management-portal/platform/app-name)}"
+ENV_NAME="${ENV_NAME:-$(fetch_config_ssm /wealth-management-portal/platform/env-name)}"
 DP_APP="$APP_NAME"
 DP_ENV="$ENV_NAME"
 
@@ -79,13 +87,13 @@ else
 fi
 
 # ── Resolve app-level SSM params when not already in env ─────────────
-REDSHIFT_DATABASE="${REDSHIFT_DATABASE:-$(fetch_ssm /wealth-management-portal/redshift-database)}"
-SES_SENDER_EMAIL="${SES_SENDER_EMAIL:-$(fetch_ssm /wealth-management-portal/ses-sender-email)}"
-REPORT_BEDROCK_MODEL_ID="${REPORT_BEDROCK_MODEL_ID:-$(fetch_ssm /wealth-management-portal/report-bedrock-model-id)}"
-TAVILY_API_KEY="${TAVILY_API_KEY:-$(fetch_ssm /wealth-management-portal/tavily-api-key)}"
-THEME_BEDROCK_MODEL_ID="${THEME_BEDROCK_MODEL_ID:-$(fetch_ssm /wealth-management-portal/theme-bedrock-model-id)}"
-DEPLOY_BASTION="${DEPLOY_BASTION:-$(fetch_ssm /wealth-management-portal/deploy-bastion)}"
-NEPTUNE_GRAPH_ID="${NEPTUNE_GRAPH_ID:-$(fetch_ssm /wealth-management-portal/neptune-graph-id)}"
+REDSHIFT_DATABASE="${REDSHIFT_DATABASE:-$(fetch_config_ssm /wealth-management-portal/redshift-database)}"
+SES_SENDER_EMAIL="${SES_SENDER_EMAIL:-$(fetch_config_ssm /wealth-management-portal/ses-sender-email)}"
+REPORT_BEDROCK_MODEL_ID="${REPORT_BEDROCK_MODEL_ID:-$(fetch_config_ssm /wealth-management-portal/report-bedrock-model-id)}"
+TAVILY_API_KEY="${TAVILY_API_KEY:-$(fetch_config_ssm /wealth-management-portal/tavily-api-key)}"
+THEME_BEDROCK_MODEL_ID="${THEME_BEDROCK_MODEL_ID:-$(fetch_config_ssm /wealth-management-portal/theme-bedrock-model-id)}"
+DEPLOY_BASTION="${DEPLOY_BASTION:-$(fetch_config_ssm /wealth-management-portal/deploy-bastion)}"
+NEPTUNE_GRAPH_ID="${NEPTUNE_GRAPH_ID:-$(fetch_config_ssm /wealth-management-portal/neptune-graph-id)}"
 
 # ── Discover deployed AgentCore resources ────────────────────────────
 # Portfolio gateway URL and report S3 bucket from the report agent runtime
@@ -132,6 +140,7 @@ REDSHIFT_WORKGROUP="${REDSHIFT_WORKGROUP:-financial-advisor-wg}"
 # ── Write .env ───────────────────────────────────────────────────────
 cat > "$ENV_FILE" <<EOF
 AWS_REGION=${AWS_REGION}
+SSM_CONFIG_REGION=${SSM_CONFIG_REGION}
 AWS_ACCOUNT_ID=${AWS_ACCOUNT_ID:-$(aws sts get-caller-identity --query Account --output text)}
 USE_DEFAULT_AWS_CREDENTIALS=true
 REDSHIFT_WORKGROUP=${REDSHIFT_WORKGROUP}
@@ -144,6 +153,7 @@ REPORT_BEDROCK_MODEL_ID=${REPORT_BEDROCK_MODEL_ID:-au.anthropic.claude-sonnet-4-
 THEME_BEDROCK_MODEL_ID=${THEME_BEDROCK_MODEL_ID:-au.anthropic.claude-sonnet-4-6}
 DEPLOY_BASTION=${DEPLOY_BASTION:-false}
 NEPTUNE_GRAPH_ID=${NEPTUNE_GRAPH_ID:-}
+NEPTUNE_PUBLIC_CONNECTIVITY=${NEPTUNE_PUBLIC_CONNECTIVITY:-false}
 PRIVATE_SUBNET_AZ=${PRIVATE_SUBNET_AZ:-}
 SES_SENDER_EMAIL=${SES_SENDER_EMAIL:-}
 TAVILY_API_KEY=${TAVILY_API_KEY:-}

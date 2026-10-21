@@ -2,8 +2,8 @@ version: 0.2
 
 env:
   variables:
-    ENABLE_COMPLIANCE_REPORTING: "false"
-    COMPLIANCE_REPORTING_BUCKET: ""
+    ENABLE_COMPLIANCE_REPORTING: 'false'
+    COMPLIANCE_REPORTING_BUCKET: ''
   parameter-store:
     # Platform identifiers - used by generate-env-from-ssm.sh to auto-discover
     # VPC, subnets, security group, route table, and Redshift workgroup from
@@ -11,6 +11,7 @@ env:
     APP_NAME: /wealth-management-portal/platform/app-name
     ENV_NAME: /wealth-management-portal/platform/env-name
     AWS_REGION: /wealth-management-portal/aws-region
+    ACCOUNT_ID: /wealth-management-portal/platform/account-id
     # App config - values that can't be auto-discovered
     REDSHIFT_DATABASE: /wealth-management-portal/redshift-database
     SES_SENDER_EMAIL: /wealth-management-portal/ses-sender-email
@@ -46,6 +47,14 @@ phases:
 
   pre_build:
     commands:
+      - |
+        set -euo pipefail
+        ACTUAL_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text --region "$AWS_REGION")
+        if [[ "$ACTUAL_ACCOUNT_ID" != "$ACCOUNT_ID" ]]; then
+          echo "ERROR: AWS account mismatch. Expected $ACCOUNT_ID, got $ACTUAL_ACCOUNT_ID." >&2
+          exit 1
+        fi
+        echo "Verified deployment account: $ACTUAL_ACCOUNT_ID"
       - export PATH="/usr/local/bin:$HOME/.local/bin:$PATH"
       - scripts/generate-env-from-ssm.sh
 
@@ -99,7 +108,7 @@ phases:
         else
           echo "  ThemeScheduler state machine not found - skipping (deploy the app stack first)"
         fi
-      - pnpm nx create-user @wealth-management-portal/infra -- --email=$TEST_USER_EMAIL --password=$TEST_USER_PASSWORD
+      - pnpm nx create-user @wealth-management-portal/infra -- --email="$TEST_USER_EMAIL"
 
   post_build:
     commands:

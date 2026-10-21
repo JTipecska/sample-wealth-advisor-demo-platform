@@ -401,6 +401,13 @@ Two CodeBuild projects automate the full deployment. A developer can go from a f
 
 The script prompts for app name, env name, regions, and other settings — with smart defaults for each. It also creates the `Admin` IAM role for Lake Formation if it doesn't exist.
 
+Before any deployment, set the exact target account and region. The upload and build helpers stop if the active AWS identity does not match:
+
+```bash
+export EXPECTED_AWS_ACCOUNT_ID="<12-digit-account-id>"
+export AWS_REGION="us-west-2"
+```
+
 #### **Step 2**: Deploy CI Infrastructure
 
 ```bash

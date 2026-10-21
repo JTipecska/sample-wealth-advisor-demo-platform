@@ -5,7 +5,7 @@ SHELL := /usr/bin/env bash -euo pipefail -c
 
 APP_NAME = ampinv
 ENV_NAME = usw2
-AWS_ACCOUNT_ID = 291534835833
+AWS_ACCOUNT_ID ?= $(shell aws sts get-caller-identity --query Account --output text 2>/dev/null)
 AWS_DEFAULT_REGION = us-west-2
 AWS_PRIMARY_REGION = us-west-2
 AWS_SECONDARY_REGION = us-east-1

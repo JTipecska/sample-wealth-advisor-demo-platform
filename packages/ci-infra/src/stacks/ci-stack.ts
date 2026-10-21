@@ -4,7 +4,6 @@ import {
   Duration,
   RemovalPolicy,
   CfnOutput,
-  CfnParameter,
 } from 'aws-cdk-lib';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as codebuild from 'aws-cdk-lib/aws-codebuild';
@@ -14,24 +13,6 @@ import { Construct } from 'constructs';
 export class CiStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope, id, props);
-
-    const gitlabGroup = new CfnParameter(this, 'GitLabGroup', {
-      type: 'String',
-      default: 'taehyunh',
-    });
-
-    const gitlabProject = new CfnParameter(this, 'GitLabProject', {
-      type: 'String',
-      default: 'wealth-management-portal',
-    });
-
-    // IAM role ARN of the GitLab runner allowed to assume the trigger role.
-    // No default — must be supplied at deploy time so no account ID is committed.
-    const gitlabRunnerRoleArn = new CfnParameter(this, 'GitLabRunnerRoleArn', {
-      type: 'String',
-      description:
-        'IAM role ARN of the GitLab runner (Credential Vendor) permitted to assume the CodeBuild trigger role, e.g. arn:aws:iam::<ACCOUNT_ID>:role/gitlab-runners-prod',
-    });
 
     // S3 source bucket
     const sourceBucket = new s3.Bucket(this, 'SourceBucket', {
@@ -176,45 +157,8 @@ export class CiStack extends Stack {
     );
     sourceBucket.grantRead(platformProject);
 
-    // GitLab trigger role (assumed by Credential Vendor)
-    const triggerPrincipal = new iam.ArnPrincipal(
-      gitlabRunnerRoleArn.valueAsString,
-    ).withConditions({
-      StringEquals: {
-        'aws:PrincipalTag/GitLab:Group': gitlabGroup.valueAsString,
-        'aws:PrincipalTag/GitLab:Project': gitlabProject.valueAsString,
-        // TODO: Re-enable after validating pipeline — requires main branch protection in GitLab
-        // 'aws:PrincipalTag/GitLab:Project:ProtectedBranch': 'Yes',
-      },
-    });
-
-    const triggerRole = new iam.Role(this, 'GitLabTriggerRole', {
-      assumedBy: triggerPrincipal,
-    });
-
-    // Credential Vendor requires sts:TagSession to pass session tags
-    triggerRole.assumeRolePolicy!.addStatements(
-      new iam.PolicyStatement({
-        effect: iam.Effect.ALLOW,
-        principals: [new iam.ArnPrincipal(gitlabRunnerRoleArn.valueAsString)],
-        actions: ['sts:TagSession'],
-      }),
-    );
-
-    triggerRole.addToPolicy(
-      new iam.PolicyStatement({
-        actions: ['codebuild:StartBuild', 'codebuild:BatchGetBuilds'],
-        resources: [project.projectArn, platformProject.projectArn],
-      }),
-    );
-    triggerRole.addToPolicy(
-      new iam.PolicyStatement({
-        actions: ['s3:PutObject'],
-        resources: [sourceBucket.arnForObjects('*')],
-      }),
-    );
-
-    new CfnOutput(this, 'GitLabTriggerRoleArn', { value: triggerRole.roleArn });
+    // Direct deployment helpers use the caller's verified AWS credentials to
+    // upload source and start these CodeBuild projects.
     new CfnOutput(this, 'SourceBucketName', { value: sourceBucket.bucketName });
     new CfnOutput(this, 'CodeBuildProjectName', { value: project.projectName });
     new CfnOutput(this, 'PlatformCodeBuildProjectName', {
