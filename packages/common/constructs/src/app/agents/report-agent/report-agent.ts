@@ -58,6 +58,8 @@ export class ReportAgent extends Construct {
       encryption: BucketEncryption.S3_MANAGED,
       versioned: true,
       enforceSSL: true,
+      serverAccessLogsBucket: accessLogsBucket,
+      serverAccessLogsPrefix: 'reports/',
       removalPolicy: RemovalPolicy.RETAIN,
     });
 

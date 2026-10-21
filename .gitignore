@@ -123,4 +123,3 @@ mfa_response.json
 *.orig
 
 # Lock files (Python)
-uv.lock

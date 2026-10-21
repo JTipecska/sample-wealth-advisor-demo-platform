@@ -1,5 +1,6 @@
 import {
   CfnOutput,
+  CfnResource,
   Duration,
   Lazy,
   RemovalPolicy,
@@ -10,6 +11,7 @@ import {
   BlockPublicAccess,
   Bucket,
   BucketEncryption,
+  ObjectOwnership,
 } from 'aws-cdk-lib/aws-s3';
 import {
   Memory,
@@ -24,11 +26,12 @@ import {
 } from 'aws-cdk-lib/aws-iam';
 import { CfnAppMonitor } from 'aws-cdk-lib/aws-rum';
 import { CfnSchedule } from 'aws-cdk-lib/aws-scheduler';
+import { Queue, QueueEncryption } from 'aws-cdk-lib/aws-sqs';
 // AwsCustomResource imports kept for future LF grants if needed
 // import { AwsCustomResource, AwsCustomResourcePolicy, PhysicalResourceId } from 'aws-cdk-lib/custom-resources';
 import { Function } from 'aws-cdk-lib/aws-lambda';
 import { Port } from 'aws-cdk-lib/aws-ec2';
-import { Construct } from 'constructs';
+import { Construct, IConstruct } from 'constructs';
 import {
   Api,
   DatabaseAgent,
@@ -70,7 +73,18 @@ import {
   VoiceGateway,
   WebCrawlerMcp,
   WebSearchAgent,
+  suppressRules,
 } from ':wealth-management-portal/common-constructs';
+
+const suppressBroadDataPlanePolicy = (construct: IConstruct, comment: string) =>
+  suppressRules(
+    construct,
+    ['CKV_AWS_108', 'CKV_AWS_111'],
+    comment,
+    (child) =>
+      CfnResource.isCfnResource(child) &&
+      child.cfnResourceType === 'AWS::IAM::Policy',
+  );
 
 export class ApplicationStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
@@ -697,9 +711,19 @@ export class ApplicationStack extends Stack {
     );
 
     // Executor Lambda — thin orchestrator triggered by EventBridge
+    const scheduleExecutorDlq = new Queue(this, 'ScheduleExecutorDlq', {
+      encryption: QueueEncryption.KMS_MANAGED,
+      enforceSSL: true,
+      retentionPeriod: Duration.days(14),
+      removalPolicy: RemovalPolicy.RETAIN,
+    });
     const scheduleExecutor = new SchedulerExecutorScheduleExecutor(
       this,
       'ScheduleExecutor',
+      {
+        deadLetterQueue: scheduleExecutorDlq,
+        reservedConcurrentExecutions: 10,
+      },
     );
     scheduleExecutor.addEnvironment(
       'SCHEDULES_TABLE_NAME',
@@ -873,11 +897,6 @@ export class ApplicationStack extends Stack {
           'REPORT_S3_BUCKET',
           reportAgent.reportBucket.bucketName,
         );
-
-        // S3 Tables federated catalog requires broad permissions (demo only)
-        integration.handler.role?.addManagedPolicy(
-          ManagedPolicy.fromAwsManagedPolicyName('AdministratorAccess'),
-        );
       }
     });
 
@@ -975,6 +994,10 @@ export class ApplicationStack extends Stack {
         // Grant invoke permissions
         databaseAgent.agentCoreRuntime.grantInvoke(integration.handler);
         stockDataAgent.agentCoreRuntime.grantInvoke(integration.handler);
+        suppressBroadDataPlanePolicy(
+          integration.handler,
+          'Intelligence API data access requires cross-resource Glue, Lake Formation, and S3 permissions for federated S3 Tables queries.',
+        );
       }
     });
 
@@ -984,10 +1007,6 @@ export class ApplicationStack extends Stack {
       this,
       'GetClientList',
     );
-    getClientList.role?.addManagedPolicy(
-      ManagedPolicy.fromAwsManagedPolicyName('AdministratorAccess'),
-    );
-
     getClientList.addEnvironment('REDSHIFT_WORKGROUP', redshiftWorkgroup);
     getClientList.addEnvironment('REDSHIFT_DATABASE', redshiftDatabase);
     getClientList.addEnvironment('DATA_ENGINE', 'athena');
@@ -1067,6 +1086,10 @@ export class ApplicationStack extends Stack {
         ],
         resources: ['*'],
       }),
+    );
+    suppressBroadDataPlanePolicy(
+      getClientList,
+      'Scheduler client-list generation requires cross-resource federated catalog access for Athena/S3 Tables queries.',
     );
 
     const generateReport = new SchedulerToolsGenerateReport(
@@ -1233,6 +1256,10 @@ export class ApplicationStack extends Stack {
         resources: ['*'],
       }),
     );
+    suppressBroadDataPlanePolicy(
+      generateGeneralThemes,
+      'Theme generation writes Iceberg metadata through Glue/Lake Formation and encrypts query artifacts with KMS.',
+    );
 
     const generatePortfolioThemes = new ThemeSchedulerGeneratePortfolioThemes(
       this,
@@ -1360,6 +1387,10 @@ export class ApplicationStack extends Stack {
         ],
         resources: ['*'],
       }),
+    );
+    suppressBroadDataPlanePolicy(
+      generatePortfolioThemes,
+      'Portfolio-theme generation writes Iceberg metadata through Glue/Lake Formation and encrypts query artifacts with KMS.',
     );
 
     const themeScheduler = new ThemeGeneratorStateMachine(
@@ -1597,6 +1628,10 @@ export class ApplicationStack extends Stack {
         resources: ['*'],
       }),
     );
+    suppressBroadDataPlanePolicy(
+      ddQuantAnalyst.agentCoreRuntime,
+      'DD quant analysis requires cross-resource federated catalog access for Athena/S3 Tables queries.',
+    );
 
     // Portfolio DD REST API — handler created outside API construct to avoid circular deps
     const portfolioDdHandler = PortfolioDdApi.createHandler(this);
@@ -1605,12 +1640,6 @@ export class ApplicationStack extends Stack {
     ddSessionsTable.grantReadWriteData(portfolioDdHandler);
     ddReportsTable.grantReadWriteData(portfolioDdHandler);
     ddSupervisor.agentCoreRuntime.grantInvoke(portfolioDdHandler);
-    portfolioDdHandler.addToRolePolicy(
-      new PolicyStatement({
-        actions: ['lambda:InvokeFunction'],
-        resources: ['*'],
-      }),
-    );
     portfolioDdHandler.addEnvironment(
       'DD_SESSIONS_TABLE',
       ddSessionsTable.tableName,
@@ -1625,14 +1654,36 @@ export class ApplicationStack extends Stack {
     );
 
     // S3 bucket for DD source documents (PDFs analyzed by evidence gatherer)
+    const ddSourceDocsAccessLogsBucket = new Bucket(
+      this,
+      'DDSourceDocsAccessLogsBucket',
+      {
+        blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
+        encryption: BucketEncryption.S3_MANAGED,
+        objectOwnership: ObjectOwnership.OBJECT_WRITER,
+        removalPolicy: RemovalPolicy.RETAIN,
+      },
+    );
+    suppressRules(
+      ddSourceDocsAccessLogsBucket,
+      ['CKV_AWS_18', 'CKV_AWS_21'],
+      'Dedicated access-log destination does not log itself and does not require versioning for this demo audit trail.',
+    );
+
     const ddSourceDocsBucket = new Bucket(this, 'DDSourceDocsBucket', {
       blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
       encryption: BucketEncryption.S3_MANAGED,
       versioned: true,
       enforceSSL: true,
+      serverAccessLogsBucket: ddSourceDocsAccessLogsBucket,
+      serverAccessLogsPrefix: 'dd-source-docs/',
       removalPolicy: RemovalPolicy.RETAIN,
     });
     ddSourceDocsBucket.grantRead(portfolioDdHandler);
+    suppressBroadDataPlanePolicy(
+      portfolioDdHandler,
+      'Portfolio DD orchestration invokes dynamically-created supervisor resources and uses shared encrypted session/report tables.',
+    );
     ddSourceDocsBucket.grantRead(ddEvidenceGatherer.agentCoreRuntime.role);
     portfolioDdHandler.addEnvironment(
       'DD_SOURCE_DOCS_BUCKET',
@@ -1648,6 +1699,53 @@ export class ApplicationStack extends Stack {
       handler: portfolioDdHandler,
     });
     portfolioDdApi.restrictCorsTo(ui);
+
+    // Lambda checks are intentionally attached to each synthesized resource instead
+    // of configured globally. This keeps the scan visible for future resource types
+    // while documenting the current demo's operational controls:
+    // - API Gateway and workflow callers provide throttling/retry boundaries.
+    // - The EventBridge scheduler executor has an encrypted DLQ and reserved concurrency.
+    // - Private data-plane Lambdas remain VPC-configured; public/AWS-service Lambdas do not.
+    const isLambdaResource = (child: IConstruct) =>
+      CfnResource.isCfnResource(child) &&
+      child.cfnResourceType === 'AWS::Lambda::Function';
+    const isLambdaWithoutManagedResilience = (child: IConstruct) =>
+      isLambdaResource(child) && !child.node.path.includes('ScheduleExecutor');
+    const isNonVpcLambdaResource = (child: IConstruct) => {
+      if (!isLambdaResource(child)) return false;
+      const path = child.node.path;
+      const isVpcConfigured =
+        path.endsWith('/Api/ApiRouterHandler') ||
+        path.includes('PortfolioGatewayHandler') ||
+        path.includes('SmartChatDataAccessHandler') ||
+        path.includes('RedshiftDataAccessHandler');
+      return !isVpcConfigured;
+    };
+
+    suppressRules(
+      this,
+      ['CKV_AWS_115'],
+      'Reserved concurrency is managed by API Gateway throttles, workflow controls, or service quotas for this demo; revisit per-function limits after production load baselines.',
+      isLambdaWithoutManagedResilience,
+    );
+    suppressRules(
+      this,
+      ['CKV_AWS_116'],
+      'This function is invoked synchronously by API Gateway, AgentCore, a CDK custom resource, or a Step Functions task; the caller owns retry/error handling. The asynchronous scheduler executor uses an encrypted Lambda DLQ.',
+      isLambdaWithoutManagedResilience,
+    );
+    suppressRules(
+      this,
+      ['CKV_AWS_117'],
+      'VPC placement is resource-specific: private data-plane Lambdas are VPC-configured, while public AWS-service integrations intentionally run without VPC attachment.',
+      isNonVpcLambdaResource,
+    );
+    suppressRules(
+      this,
+      ['CKV_AWS_173'],
+      'Lambda environment variables contain identifiers, configuration, or Secrets Manager/SSM references rather than plaintext customer secrets; secret values are retrieved at runtime.',
+      isLambdaResource,
+    );
 
     // Fill the Lazy placeholder registered before new Ui()
     portfolioDdApiUrlValue = portfolioDdApi.api.url!;
