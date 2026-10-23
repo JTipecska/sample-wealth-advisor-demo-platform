@@ -874,6 +874,41 @@ export class ApplicationStack extends Stack {
             ],
           }),
         );
+        // S3 access to the Athena query-results bucket. The 's3tables' workgroup
+        // ENFORCES its own output location (<account>-<app>-<region>-athena-output),
+        // overriding ATHENA_OUTPUT_LOCATION, so the handler role must be able to
+        // read/write that enforced bucket or StartQueryExecution fails with
+        // "Unable to verify/create output bucket".
+        integration.handler.role?.addToPrincipalPolicy(
+          new PolicyStatement({
+            actions: [
+              's3:GetBucketLocation',
+              's3:GetObject',
+              's3:PutObject',
+              's3:ListBucket',
+              's3:ListMultipartUploadParts',
+              's3:AbortMultipartUpload',
+            ],
+            resources: [
+              `arn:aws:s3:::${this.account}-*-athena-output`,
+              `arn:aws:s3:::${this.account}-*-athena-output/*`,
+            ],
+          }),
+        );
+        // KMS access for the SSE-KMS-encrypted Athena results bucket (Athena uses
+        // the caller role's key access when writing/reading results).
+        integration.handler.role?.addToPrincipalPolicy(
+          new PolicyStatement({
+            actions: [
+              'kms:Decrypt',
+              'kms:Encrypt',
+              'kms:GenerateDataKey',
+              'kms:ReEncrypt*',
+              'kms:DescribeKey',
+            ],
+            resources: [`arn:aws:kms:${this.region}:${this.account}:key/*`],
+          }),
+        );
         integration.handler.addEnvironment('DATA_ENGINE', 'athena');
         integration.handler.addEnvironment('ATHENA_WORKGROUP', 's3tables');
         integration.handler.addEnvironment(
